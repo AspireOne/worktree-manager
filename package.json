@@ -1,6 +1,6 @@
 {
   "name": "@aspireone/wt",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Minimal git worktree launcher for parallel Codex workflows",
   "type": "module",
   "packageManager": "pnpm@10.0.0",

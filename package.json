@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Minimal git worktree launcher for parallel Codex workflows",
   "type": "module",
+  "packageManager": "pnpm@10.0.0",
   "bin": {
     "wt": "./bin/wt.js"
   },
@@ -22,7 +23,7 @@
   },
   "scripts": {
     "start": "node ./bin/wt.js",
-    "pack:check": "npm pack --dry-run",
+    "pack:check": "pnpm publish --dry-run",
     "release": "node ./scripts/release.mjs",
     "release:patch": "node ./scripts/release.mjs patch",
     "release:minor": "node ./scripts/release.mjs minor",

@@ -34,14 +34,14 @@ Requires Node 18+.
 For local development from this repo:
 
 ```bash
-npm install
-npm link
+pnpm install
+pnpm link --global
 ```
 
 That exposes the `wt` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
 
 ```bash
-npm install -g @aspireone/wt
+pnpm add -g @aspireone/wt
 ```
 
 Keep `.trees/` in your repo's `.gitignore`:
@@ -116,11 +116,11 @@ package.json   npm package metadata
 Create a new patch release, tag it, and publish it:
 
 ```bash
-npm run release
+pnpm run release
 ```
 
 For a different bump level:
 
 ```bash
-npm run release -- minor
+pnpm run release -- minor
 ```

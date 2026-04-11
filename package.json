@@ -1,0 +1,30 @@
+{
+  "name": "@aspireone/wt",
+  "version": "0.1.0",
+  "description": "Minimal git worktree launcher for parallel Codex workflows",
+  "type": "module",
+  "bin": {
+    "wt": "./bin/wt.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    ".wt.config.toml.example",
+    "config.toml.global.example"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node ./bin/wt.js",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "git",
+    "worktree",
+    "codex",
+    "cli"
+  ],
+  "license": "UNLICENSED"
+}

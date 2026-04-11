@@ -31,12 +31,20 @@ your-repo/
 
 Requires Node 18+.
 
+For local development from this repo:
+
 ```bash
-chmod +x wt.mjs
-ln -s $(pwd)/wt.mjs /usr/local/bin/wt
+npm install
+npm link
 ```
 
-Add `.trees/` to your `.gitignore`:
+That exposes the `wt` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
+
+```bash
+npm install -g @aspireone/wt
+```
+
+Keep `.trees/` in your repo's `.gitignore`:
 
 ```bash
 echo ".trees/" >> .gitignore
@@ -75,7 +83,7 @@ Setup commands run once after the worktree is created. Three template variables 
 | `{root}` | Absolute path to the repo root |
 | `{branch}` | The branch name (e.g. `feat/auth-refactor`) |
 
-If no `setup` is configured, the script just creates the worktree and exits.
+If no `setup` is configured, the CLI just creates the worktree and exits.
 
 ### All config keys
 
@@ -93,3 +101,11 @@ If no `setup` is configured, the script just creates the worktree and exits.
 - **Worktree registered but directory missing?** Stale entry pruned, worktree recreated.
 - **`--now` / `-n`?** Launches `codex` inside the worktree after setup.
 - **No `--now`?** Prints the `cd` + `codex` command and exits.
+
+## Package Layout
+
+```text
+bin/wt.js      npm-exposed executable
+src/cli.mjs    implementation
+package.json   npm package metadata
+```

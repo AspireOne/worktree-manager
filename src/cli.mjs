@@ -1,6 +1,4 @@
-#!/usr/bin/env node
-// wt.mjs — git worktree launcher for agentic workflows
-// Usage: wt <branch> [--base <branch>] [--now]
+// wt — git worktree launcher for agentic workflows
 // Requires: Node 18+, git
 
 import { execSync, spawnSync, spawn } from 'node:child_process';
@@ -10,18 +8,18 @@ import { homedir } from 'node:os';
 import { parseArgs } from 'node:util';
 
 
-// ── Logging ───────────────────────────────────────────────────────────────────
+// Logging
 
 const log  = (msg) => console.log(`\x1b[36mwt\x1b[0m  ${msg}`);
 const warn = (msg) => console.warn(`\x1b[33mwt  warn: ${msg}\x1b[0m`);
 const die  = (msg) => { console.error(`\x1b[31mwt  error: ${msg}\x1b[0m`); process.exit(1); };
 
 
-// ── Minimal TOML parser ───────────────────────────────────────────────────────
+// Minimal TOML parser
 // Supports: string, boolean, number, array-of-strings (inline or multiline).
 
 function parseToml(src) {
-  const out   = {};
+  const out = {};
   const lines = src.split('\n');
   let i = 0;
 
@@ -32,10 +30,9 @@ function parseToml(src) {
     const eq = line.indexOf('=');
     if (eq === -1) { i++; continue; }
 
-    const key    = line.slice(0, eq).trim();
+    const key = line.slice(0, eq).trim();
     const valRaw = line.slice(eq + 1).trim();
 
-    // Array — collect lines until the closing ]
     if (valRaw.startsWith('[')) {
       let collected = valRaw;
       while (!collected.includes(']') && i + 1 < lines.length) {
@@ -43,25 +40,36 @@ function parseToml(src) {
         collected += '\n' + lines[i];
       }
       const inner = collected.slice(collected.indexOf('[') + 1, collected.lastIndexOf(']'));
-      // Extract every double-quoted string in the inner content
-      out[key] = [...inner.matchAll(/"([^"]*)"/g)].map(m => m[1]);
-      i++; continue;
+      out[key] = [...inner.matchAll(/"([^"]*)"/g)].map((match) => match[1]);
+      i++;
+      continue;
     }
 
-    // String (double or single quoted)
     if (valRaw.startsWith('"') || valRaw.startsWith("'")) {
       out[key] = valRaw.replace(/^["']|["']$/g, '');
-      i++; continue;
+      i++;
+      continue;
     }
 
-    // Boolean
-    if (valRaw === 'true')  { out[key] = true;  i++; continue; }
-    if (valRaw === 'false') { out[key] = false; i++; continue; }
+    if (valRaw === 'true') {
+      out[key] = true;
+      i++;
+      continue;
+    }
 
-    // Number (strip trailing inline comment before parsing)
+    if (valRaw === 'false') {
+      out[key] = false;
+      i++;
+      continue;
+    }
+
     const numStr = valRaw.split('#')[0].trim();
     const n = Number(numStr);
-    if (numStr && !isNaN(n)) { out[key] = n; i++; continue; }
+    if (numStr && !Number.isNaN(n)) {
+      out[key] = n;
+      i++;
+      continue;
+    }
 
     i++;
   }
@@ -70,34 +78,34 @@ function parseToml(src) {
 }
 
 
-// ── Config ────────────────────────────────────────────────────────────────────
+// Config
 
 const DEFAULTS = {
-  baseBranch:   'main',
+  baseBranch: 'main',
   worktreeRoot: '.trees',
-  shell:        true,   // true = system default shell; or e.g. "bash" / "pwsh"
-  setup:        [],
+  shell: true,
+  setup: [],
 };
 
 function loadConfigFile(filePath) {
   if (!existsSync(filePath)) return {};
   try {
     return parseToml(readFileSync(filePath, 'utf8'));
-  } catch (e) {
-    warn(`Could not parse config at ${filePath}: ${e.message}`);
+  } catch (error) {
+    warn(`Could not parse config at ${filePath}: ${error.message}`);
     return {};
   }
 }
 
-// Precedence (lowest → highest): defaults < global < repo < CLI flags
+// Precedence (lowest -> highest): defaults < global < repo < CLI flags
 function loadConfig(repoRoot) {
   const global = loadConfigFile(join(homedir(), '.config', 'wt', 'config.toml'));
-  const local  = loadConfigFile(join(repoRoot, '.wt.config.toml'));
+  const local = loadConfigFile(join(repoRoot, '.wt.config.toml'));
   return { ...DEFAULTS, ...global, ...local };
 }
 
 
-// ── Git helpers ───────────────────────────────────────────────────────────────
+// Git helpers
 
 function getRepoRoot() {
   try {
@@ -119,9 +127,10 @@ function branchExists(name) {
 function worktreeExistsForPath(absPath) {
   try {
     const out = execSync('git worktree list --porcelain', { encoding: 'utf8', stdio: 'pipe' });
-    const registeredPaths = out.split('\n')
-      .filter(l => l.startsWith('worktree '))
-      .map(l => resolve(l.slice('worktree '.length).trim()));
+    const registeredPaths = out
+      .split('\n')
+      .filter((line) => line.startsWith('worktree '))
+      .map((line) => resolve(line.slice('worktree '.length).trim()));
     return registeredPaths.includes(resolve(absPath));
   } catch {
     return false;
@@ -138,7 +147,7 @@ function git(cmd, cwd) {
 
 function createOrReuseBranch(branchName, baseBranch, repoRoot) {
   if (branchExists(branchName)) {
-    log(`Branch '${branchName}' exists — reusing.`);
+    log(`Branch '${branchName}' exists - reusing.`);
     return;
   }
   log(`Creating branch '${branchName}' from '${baseBranch}'...`);
@@ -150,13 +159,12 @@ function createOrReattachWorktree(worktreePath, branchName, repoRoot) {
   const dirPresent = existsSync(worktreePath);
 
   if (registered && dirPresent) {
-    log(`Worktree '${worktreePath}' already exists — reattaching.`);
+    log(`Worktree '${worktreePath}' already exists - reattaching.`);
     return;
   }
 
   if (registered && !dirPresent) {
-    // Directory was manually deleted; prune the stale entry and recreate.
-    warn(`Worktree registered but directory missing — pruning stale entry.`);
+    warn('Worktree registered but directory missing - pruning stale entry.');
     git('worktree prune', repoRoot);
   }
 
@@ -166,17 +174,15 @@ function createOrReattachWorktree(worktreePath, branchName, repoRoot) {
 }
 
 
-// ── Setup ─────────────────────────────────────────────────────────────────────
+// Setup
 
-// Replace {target}, {branch}, {root} in a command string.
 function interpolate(cmd, vars) {
-  return cmd.replace(/\{(\w+)\}/g, (_, k) => {
-    if (!(k in vars)) die(`Unknown template variable '{${k}}' in setup command: ${cmd}`);
-    return vars[k];
+  return cmd.replace(/\{(\w+)\}/g, (_, key) => {
+    if (!(key in vars)) die(`Unknown template variable '{${key}}' in setup command: ${cmd}`);
+    return vars[key];
   });
 }
 
-// Foreground: run sequentially, inherit stdio, die on failure.
 function runSetup(commands, vars, shell) {
   if (!commands.length) return;
   log('Running setup...');
@@ -191,36 +197,33 @@ function runSetup(commands, vars, shell) {
   }
 }
 
-// Background: join all commands with &&, spawn detached, pipe output to log file.
-// Used with --now so codex launches immediately without waiting for setup.
 function runSetupBackground(commands, vars, shell) {
   if (!commands.length) return;
 
-  const script  = commands.map(raw => interpolate(raw, vars)).join(' && ');
+  const script = commands.map((raw) => interpolate(raw, vars)).join(' && ');
   const logPath = join(vars.target, '.wt-setup.log');
-  const out     = createWriteStream(logPath);
+  const out = createWriteStream(logPath);
 
-  log(`Setup running in background → ${logPath}`);
+  log(`Setup running in background -> ${logPath}`);
   log(`  $ ${script}`);
 
   const child = spawn(script, [], {
-    cwd:      vars.root,
-    shell:    shell ?? true,
-    stdio:    ['ignore', out, out],
+    cwd: vars.root,
+    shell: shell ?? true,
+    stdio: ['ignore', out, out],
     detached: true,
   });
 
-  child.on('exit', code => {
+  child.on('exit', (code) => {
     if (code !== 0) out.write(`\nwt: setup exited with code ${code}\n`);
     out.end();
   });
 
-  // Detach so wt.mjs doesn't wait for setup when it exits after codex quits.
   child.unref();
 }
 
 
-// ── Launch ────────────────────────────────────────────────────────────────────
+// Launch
 
 function launchCodex(worktreePath) {
   log(`Launching codex in '${worktreePath}'...`);
@@ -229,22 +232,21 @@ function launchCodex(worktreePath) {
 }
 
 
-// ── Path helpers ──────────────────────────────────────────────────────────────
+// Path helpers
 
-// "feat/my-thing" → "feat-my-thing"  (safe for filesystem use)
 function branchToDir(branch) {
   return branch.replace(/\//g, '-').replace(/[^\w\-.]/g, '-');
 }
 
 
-// ── CLI args ──────────────────────────────────────────────────────────────────
+// CLI args
 
 function parseCLI() {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      now:  { type: 'boolean', short: 'n', default: false },
-      base: { type: 'string',  short: 'b' },
+      now: { type: 'boolean', short: 'n', default: false },
+      base: { type: 'string', short: 'b' },
     },
     allowPositionals: true,
   });
@@ -258,37 +260,30 @@ function parseCLI() {
 }
 
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-
-function main() {
-  const cli      = parseCLI();
+export function main() {
+  const cli = parseCLI();
   const repoRoot = getRepoRoot();
-  const config   = loadConfig(repoRoot);
+  const config = loadConfig(repoRoot);
 
-  const baseBranch   = cli.base ?? config.baseBranch;
-  const branchName   = cli.branch;
+  const baseBranch = cli.base ?? config.baseBranch;
+  const branchName = cli.branch;
   const worktreePath = resolve(join(repoRoot, config.worktreeRoot, branchToDir(branchName)));
-
-  // Template variables available in setup commands
   const vars = { target: worktreePath, branch: branchName, root: repoRoot };
 
-  log(`branch   → ${branchName}`);
-  log(`worktree → ${worktreePath}`);
-  log(`base     → ${baseBranch}`);
+  log(`branch   -> ${branchName}`);
+  log(`worktree -> ${worktreePath}`);
+  log(`base     -> ${baseBranch}`);
 
   createOrReuseBranch(branchName, baseBranch, repoRoot);
   createOrReattachWorktree(worktreePath, branchName, repoRoot);
 
   if (cli.now) {
-    // Kick off setup in background, then immediately open codex.
-    // Setup will finish long before the first prompt is written.
     runSetupBackground(config.setup, vars, config.shell);
     launchCodex(worktreePath);
-  } else {
-    runSetup(config.setup, vars, config.shell);
-    log('Done. To start codex:');
-    log(`  cd "${worktreePath}" && codex`);
+    return;
   }
-}
 
-main();
+  runSetup(config.setup, vars, config.shell);
+  log('Done. To start codex:');
+  log(`  cd "${worktreePath}" && codex`);
+}

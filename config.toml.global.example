@@ -1,0 +1,5 @@
+# ~/.config/wt/config.toml — global defaults (all repos on this machine)
+# Repo-level .wt.config.toml overrides these values.
+
+baseBranch   = "main"
+worktreeRoot = ".trees"

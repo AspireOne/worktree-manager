@@ -107,5 +107,20 @@ If no `setup` is configured, the CLI just creates the worktree and exits.
 ```text
 bin/wt.js      npm-exposed executable
 src/cli.mjs    implementation
+scripts/       release automation
 package.json   npm package metadata
+```
+
+## Release
+
+Create a new patch release, tag it, and publish it:
+
+```bash
+npm run release
+```
+
+For a different bump level:
+
+```bash
+npm run release -- minor
 ```

@@ -124,3 +124,5 @@ For a different bump level:
 ```bash
 pnpm run release -- minor
 ```
+
+The preflight check uses `pnpm pack` in a temporary directory, so it validates the tarball contents locally without failing just because that version already exists on npm or leaving a tarball in the repo.

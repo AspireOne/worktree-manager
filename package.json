@@ -23,7 +23,7 @@
   },
   "scripts": {
     "start": "node ./bin/wtc.js",
-    "pack:check": "pnpm publish --dry-run",
+    "pack:check": "node ./scripts/pack-check.mjs",
     "release": "node ./scripts/release.mjs",
     "release:patch": "node ./scripts/release.mjs patch",
     "release:minor": "node ./scripts/release.mjs minor",

@@ -1,4 +1,4 @@
-# wt
+# wtc
 
 A minimal Git worktree launcher for parallel agentic coding with [Codex CLI](https://github.com/openai/codex).
 
@@ -6,15 +6,15 @@ A minimal Git worktree launcher for parallel agentic coding with [Codex CLI](htt
 
 Codex CLI has no native worktree support. Running multiple agents in the same working directory causes file conflicts and makes it hard to parallelize independent tasks.
 
-The solution is one Git worktree per task — each agent gets its own isolated directory and branch to work in, with no interference between sessions. `wt` automates the boilerplate: create the branch, create the worktree, run repo-specific setup, and optionally launch Codex right away.
+The solution is one Git worktree per task - each agent gets its own isolated directory and branch to work in, with no interference between sessions. `wtc` automates the boilerplate: create the branch, create the worktree, run repo-specific setup, and optionally launch Codex right away.
 
 ## Usage
 
 ```bash
-wt feat/auth-refactor           # create worktree + run setup, print cd command
-wt fix/login-race --now         # same, then immediately launch codex
-wt feat/thing --base develop    # branch off develop instead of main
-wt feat/auth-refactor           # already exists? reattaches idempotently
+wtc feat/auth-refactor           # create worktree + run setup, print cd command
+wtc fix/login-race --now         # same, then immediately launch codex
+wtc feat/thing --base develop    # branch off develop instead of main
+wtc feat/auth-refactor           # already exists? reattaches idempotently
 ```
 
 Worktrees are placed under `.trees/` in the repo root:
@@ -38,7 +38,7 @@ pnpm install
 pnpm link --global
 ```
 
-That exposes the `wt` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
+That exposes the `wtc` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
 
 ```bash
 pnpm add -g @aspireone/wt
@@ -52,7 +52,7 @@ echo ".trees/" >> .gitignore
 
 ## Config
 
-`wt` looks for config in two places, merged in this order (higher overrides lower):
+`wtc` looks for config in two places, merged in this order (higher overrides lower):
 
 | File | Scope |
 |---|---|
@@ -105,7 +105,7 @@ If no `setup` is configured, the CLI just creates the worktree and exits.
 ## Package Layout
 
 ```text
-bin/wt.js      npm-exposed executable
+bin/wtc.js     npm-exposed executable
 src/cli.mjs    implementation
 scripts/       release automation
 package.json   npm package metadata

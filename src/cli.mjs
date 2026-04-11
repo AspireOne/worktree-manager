@@ -252,7 +252,7 @@ function parseCLI() {
   });
 
   if (!positionals.length) {
-    console.error('Usage: wt <branch> [--base <branch>] [--now|-n]');
+    console.error('Usage: wtc <branch> [--base <branch>] [--now|-n]');
     process.exit(1);
   }
 

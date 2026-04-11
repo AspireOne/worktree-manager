@@ -145,6 +145,26 @@ function git(cmd, cwd) {
   }
 }
 
+function gitCapture(cmd, cwd) {
+  try {
+    return execSync(`git ${cmd}`, { cwd, encoding: 'utf8', stdio: 'pipe' }).trimEnd();
+  } catch {
+    die(`git ${cmd.split(' ')[0]} failed.`);
+  }
+}
+
+function tryGit(cmd, cwd) {
+  try {
+    execSync(`git ${cmd}`, { cwd, stdio: 'pipe' });
+    return { ok: true, error: null };
+  } catch (error) {
+    const stderr = error.stderr?.toString?.().trim() ?? '';
+    const stdout = error.stdout?.toString?.().trim() ?? '';
+    const message = stderr || stdout || `git ${cmd.split(' ')[0]} failed.`;
+    return { ok: false, error: message };
+  }
+}
+
 function createOrReuseBranch(branchName, baseBranch, repoRoot) {
   if (branchExists(branchName)) {
     log(`Branch '${branchName}' exists - reusing.`);
@@ -238,6 +258,203 @@ function branchToDir(branch) {
   return branch.replace(/\//g, '-').replace(/[^\w\-.]/g, '-');
 }
 
+function parseWorktreeList(repoRoot) {
+  const out = gitCapture('worktree list --porcelain', repoRoot);
+  if (!out.trim()) return [];
+
+  return out
+    .split('\n\n')
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const entry = {
+        path: '',
+        branch: null,
+        head: null,
+        bare: false,
+        detached: false,
+        locked: false,
+        prunable: false,
+        isMain: false,
+      };
+
+      for (const line of block.split('\n')) {
+        if (line.startsWith('worktree ')) entry.path = resolve(line.slice('worktree '.length).trim());
+        else if (line.startsWith('branch ')) entry.branch = line.slice('branch '.length).trim().replace(/^refs\/heads\//, '');
+        else if (line.startsWith('HEAD ')) entry.head = line.slice('HEAD '.length).trim();
+        else if (line === 'bare') entry.bare = true;
+        else if (line === 'detached') entry.detached = true;
+        else if (line.startsWith('locked')) entry.locked = true;
+        else if (line.startsWith('prunable')) entry.prunable = true;
+      }
+
+      entry.isMain = entry.path === resolve(repoRoot);
+      return entry;
+    });
+}
+
+function renderManageScreen(entries, selected, status) {
+  const lines = [];
+  lines.push('\x1b[2J\x1b[H');
+  lines.push('wtc manage');
+  lines.push('');
+
+  if (!entries.length) {
+    lines.push('  No worktrees found.');
+  } else {
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const cursor = i === selected ? '\x1b[7m>\x1b[0m' : ' ';
+      const state = [
+        entry.isMain ? 'main' : null,
+        entry.detached ? 'detached' : null,
+        entry.locked ? 'locked' : null,
+        entry.prunable ? 'prunable' : null,
+      ].filter(Boolean).join(', ');
+      const branch = entry.branch ?? '(no branch)';
+      const suffix = state ? `  [${state}]` : '';
+      lines.push(`${cursor} ${branch}`);
+      lines.push(`    ${entry.path}${suffix}`);
+    }
+  }
+
+  lines.push('');
+  lines.push(status ? `  ${status}` : '  Browse worktrees and manage stale ones.');
+  lines.push('  Keys: ↑/↓ move  d delete wt  D delete wt+branch  r refresh  q quit');
+  process.stdout.write(lines.join('\n'));
+}
+
+function removeWorktree(entry, repoRoot, removeBranch = false) {
+  if (entry.isMain) return 'Refusing to remove the main checkout.';
+  if (!existsSync(entry.path)) {
+    const pruned = tryGit('worktree prune', repoRoot);
+    return pruned.ok ? 'Pruned missing worktree entries.' : pruned.error;
+  }
+
+  const removed = tryGit(`worktree remove --force "${entry.path}"`, repoRoot);
+  if (!removed.ok) return removed.error;
+  if (!removeBranch) return `Removed ${entry.path}`;
+
+  if (!entry.branch) return `Removed ${entry.path}; no local branch to delete.`;
+
+  const deletedBranch = tryGit(`branch -D ${entry.branch}`, repoRoot);
+  return deletedBranch.ok
+    ? `Removed ${entry.path} and deleted branch ${entry.branch}`
+    : `Removed ${entry.path}; branch delete failed: ${deletedBranch.error}`;
+}
+
+function manageWorktrees(repoRoot) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    die('wtc manage requires an interactive terminal.');
+  }
+
+  let entries = parseWorktreeList(repoRoot);
+  let selected = 0;
+  let status = '';
+  let confirmDelete = false;
+  let deleteBranch = false;
+
+  const refresh = () => {
+    entries = parseWorktreeList(repoRoot);
+    if (entries.length === 0) selected = 0;
+    else selected = Math.max(0, Math.min(selected, entries.length - 1));
+  };
+
+  const redraw = () => {
+    const prompt = confirmDelete && entries[selected]
+      ? deleteBranch
+        ? `Delete ${entries[selected].path} and branch ${entries[selected].branch ?? '(none)'}? Press y to confirm, any other key to cancel.`
+        : `Delete ${entries[selected].path}? Press y to confirm, any other key to cancel.`
+      : status;
+    renderManageScreen(entries, selected, prompt);
+  };
+
+  const cleanup = () => {
+    process.stdin.setRawMode(false);
+    process.stdin.pause();
+    process.stdin.removeListener('data', onData);
+    process.stdout.write('\x1b[0m\n');
+  };
+
+  const exit = () => {
+    cleanup();
+  };
+
+  const onData = (buf) => {
+    const key = buf.toString('utf8');
+
+    if (confirmDelete) {
+      confirmDelete = false;
+      if ((key === 'y' || key === 'Y') && entries[selected]) {
+        status = removeWorktree(entries[selected], repoRoot, deleteBranch);
+        refresh();
+      } else {
+        status = 'Delete cancelled.';
+      }
+      deleteBranch = false;
+      redraw();
+      return;
+    }
+
+    if (key === '\u0003' || key === 'q') {
+      exit();
+      return;
+    }
+
+    if (key === '\u001b[A') {
+      if (entries.length) selected = Math.max(0, selected - 1);
+      redraw();
+      return;
+    }
+
+    if (key === '\u001b[B') {
+      if (entries.length) selected = Math.min(entries.length - 1, selected + 1);
+      redraw();
+      return;
+    }
+
+    if (key === 'r') {
+      refresh();
+      status = 'Refreshed.';
+      redraw();
+      return;
+    }
+
+    if (key === 'd') {
+      if (!entries[selected]) {
+        status = 'No worktree selected.';
+      } else if (entries[selected].isMain) {
+        status = 'Main checkout cannot be removed here.';
+      } else {
+        deleteBranch = false;
+        confirmDelete = true;
+      }
+      redraw();
+      return;
+    }
+
+    if (key === 'D') {
+      if (!entries[selected]) {
+        status = 'No worktree selected.';
+      } else if (entries[selected].isMain) {
+        status = 'Main checkout cannot be removed here.';
+      } else if (!entries[selected].branch) {
+        status = 'Selected worktree has no local branch to delete.';
+      } else {
+        deleteBranch = true;
+        confirmDelete = true;
+      }
+      redraw();
+      return;
+    }
+  };
+
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.on('data', onData);
+  redraw();
+}
+
 
 // CLI args
 
@@ -253,16 +470,27 @@ function parseCLI() {
 
   if (!positionals.length) {
     console.error('Usage: wtc <branch> [--base <branch>] [--now|-n]');
+    console.error('       wtc manage');
     process.exit(1);
   }
 
-  return { branch: positionals[0], now: values.now, base: values.base ?? null };
+  if (positionals[0] === 'manage') {
+    return { command: 'manage', branch: null, now: false, base: null };
+  }
+
+  return { command: 'create', branch: positionals[0], now: values.now, base: values.base ?? null };
 }
 
 
 export function main() {
   const cli = parseCLI();
   const repoRoot = getRepoRoot();
+
+  if (cli.command === 'manage') {
+    manageWorktrees(repoRoot);
+    return;
+  }
+
   const config = loadConfig(repoRoot);
 
   const baseBranch = cli.base ?? config.baseBranch;

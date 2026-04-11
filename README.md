@@ -15,6 +15,7 @@ wtc feat/auth-refactor           # create worktree + run setup, print cd command
 wtc fix/login-race --now         # same, then immediately launch codex
 wtc feat/thing --base develop    # branch off develop instead of main
 wtc feat/auth-refactor           # already exists? reattaches idempotently
+wtc manage                       # interactive worktree browser / remover
 ```
 
 Worktrees are placed under `.trees/` in the repo root:
@@ -36,6 +37,13 @@ For local development from this repo:
 ```bash
 pnpm install
 pnpm link --global
+```
+
+To run the local checkout without linking it globally, use either:
+
+```bash
+pnpm wtc -- manage
+node ./bin/wtc.js manage
 ```
 
 That exposes the `wtc` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
@@ -101,6 +109,18 @@ If no `setup` is configured, the CLI just creates the worktree and exits.
 - **Worktree registered but directory missing?** Stale entry pruned, worktree recreated.
 - **`--now` / `-n`?** Launches `codex` inside the worktree after setup.
 - **No `--now`?** Prints the `cd` + `codex` command and exits.
+
+## Manage UI
+
+Run `wtc manage` to open an interactive worktree list in the terminal.
+
+- `↑` / `↓` move the selection
+- `d` deletes the selected worktree after a `y` confirmation
+- `D` deletes the selected worktree and force-deletes its local branch after a `y` confirmation
+- `r` refreshes the list
+- `q` exits
+
+The main checkout is shown in the list but cannot be removed from this screen.
 
 ## Package Layout
 

@@ -2,7 +2,7 @@
 // Requires: Node 18+, git
 
 import { execSync, spawnSync, spawn } from 'node:child_process';
-import { existsSync, readFileSync, mkdirSync, createWriteStream } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, createWriteStream } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { parseArgs } from 'node:util';
@@ -13,6 +13,8 @@ import { parseArgs } from 'node:util';
 const log  = (msg) => console.log(`\x1b[36mwt\x1b[0m  ${msg}`);
 const warn = (msg) => console.warn(`\x1b[33mwt  warn: ${msg}\x1b[0m`);
 const die  = (msg) => { console.error(`\x1b[31mwt  error: ${msg}\x1b[0m`); process.exit(1); };
+
+const LOCAL_CONFIG_TEMPLATE_URL = new URL('../.wt.config.toml.example', import.meta.url);
 
 
 // Minimal TOML parser
@@ -95,6 +97,18 @@ function loadConfigFile(filePath) {
     warn(`Could not parse config at ${filePath}: ${error.message}`);
     return {};
   }
+}
+
+function bootstrapLocalConfig(targetDir = process.cwd()) {
+  const targetPath = resolve(join(targetDir, '.wt.config.toml'));
+
+  if (existsSync(targetPath)) {
+    die(`Config already exists at ${targetPath}`);
+  }
+
+  const template = readFileSync(LOCAL_CONFIG_TEMPLATE_URL, 'utf8');
+  writeFileSync(targetPath, template, { encoding: 'utf8', flag: 'wx' });
+  log(`Created ${targetPath}`);
 }
 
 // Precedence (lowest -> highest): defaults < global < repo < CLI flags
@@ -470,8 +484,13 @@ function parseCLI() {
 
   if (!positionals.length) {
     console.error('Usage: wtc <branch> [--base <branch>] [--now|-n]');
+    console.error('       wtc init');
     console.error('       wtc manage');
     process.exit(1);
+  }
+
+  if (positionals[0] === 'init') {
+    return { command: 'init' };
   }
 
   if (positionals[0] === 'manage') {
@@ -484,6 +503,12 @@ function parseCLI() {
 
 export function main() {
   const cli = parseCLI();
+
+  if (cli.command === 'init') {
+    bootstrapLocalConfig();
+    return;
+  }
+
   const repoRoot = getRepoRoot();
 
   if (cli.command === 'manage') {

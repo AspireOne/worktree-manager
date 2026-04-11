@@ -15,6 +15,7 @@ wtc feat/auth-refactor           # create worktree + run setup, print cd command
 wtc fix/login-race --now         # same, then immediately launch codex
 wtc feat/thing --base develop    # branch off develop instead of main
 wtc feat/auth-refactor           # already exists? reattaches idempotently
+wtc init                         # write .wt.config.toml into the current directory
 wtc manage                       # interactive worktree browser / remover
 ```
 
@@ -68,6 +69,14 @@ echo ".trees/" >> .gitignore
 | `.wt.config.toml` (repo root) | Per-repo config, commit this |
 
 CLI flags override both.
+
+To bootstrap a repo-local config file in the current directory, run:
+
+```bash
+wtc init
+```
+
+This creates `.wt.config.toml` from the packaged example template and refuses to overwrite an existing file.
 
 **Example `.wt.config.toml`:**
 

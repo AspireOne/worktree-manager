@@ -3,8 +3,8 @@
 // Usage: wt <branch> [--base <branch>] [--now]
 // Requires: Node 18+, git
 
-import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { execSync, spawnSync, spawn } from 'node:child_process';
+import { existsSync, readFileSync, mkdirSync, createWriteStream } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { parseArgs } from 'node:util';
@@ -19,7 +19,6 @@ const die  = (msg) => { console.error(`\x1b[31mwt  error: ${msg}\x1b[0m`); proce
 
 // ── Minimal TOML parser ───────────────────────────────────────────────────────
 // Supports: string, boolean, number, array-of-strings (inline or multiline).
-// TOML standard requires double-quoted strings; single quotes also accepted here.
 
 function parseToml(src) {
   const out   = {};
@@ -177,6 +176,7 @@ function interpolate(cmd, vars) {
   });
 }
 
+// Foreground: run sequentially, inherit stdio, die on failure.
 function runSetup(commands, vars, shell) {
   if (!commands.length) return;
   log('Running setup...');
@@ -191,12 +191,40 @@ function runSetup(commands, vars, shell) {
   }
 }
 
+// Background: join all commands with &&, spawn detached, pipe output to log file.
+// Used with --now so codex launches immediately without waiting for setup.
+function runSetupBackground(commands, vars, shell) {
+  if (!commands.length) return;
+
+  const script  = commands.map(raw => interpolate(raw, vars)).join(' && ');
+  const logPath = join(vars.target, '.wt-setup.log');
+  const out     = createWriteStream(logPath);
+
+  log(`Setup running in background → ${logPath}`);
+  log(`  $ ${script}`);
+
+  const child = spawn(script, [], {
+    cwd:      vars.root,
+    shell:    shell ?? true,
+    stdio:    ['ignore', out, out],
+    detached: true,
+  });
+
+  child.on('exit', code => {
+    if (code !== 0) out.write(`\nwt: setup exited with code ${code}\n`);
+    out.end();
+  });
+
+  // Detach so wt.mjs doesn't wait for setup when it exits after codex quits.
+  child.unref();
+}
+
 
 // ── Launch ────────────────────────────────────────────────────────────────────
 
 function launchCodex(worktreePath) {
   log(`Launching codex in '${worktreePath}'...`);
-  const { error } = spawnSync('codex', [], { cwd: worktreePath, stdio: 'inherit' });
+  const { error } = spawnSync('codex', [], { cwd: worktreePath, stdio: 'inherit', shell: true });
   if (error) die(`Could not launch codex: ${error.message}`);
 }
 
@@ -250,11 +278,14 @@ function main() {
 
   createOrReuseBranch(branchName, baseBranch, repoRoot);
   createOrReattachWorktree(worktreePath, branchName, repoRoot);
-  runSetup(config.setup, vars, config.shell);
 
   if (cli.now) {
+    // Kick off setup in background, then immediately open codex.
+    // Setup will finish long before the first prompt is written.
+    runSetupBackground(config.setup, vars, config.shell);
     launchCodex(worktreePath);
   } else {
+    runSetup(config.setup, vars, config.shell);
     log('Done. To start codex:');
     log(`  cd "${worktreePath}" && codex`);
   }

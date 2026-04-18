@@ -14,7 +14,6 @@ import {
   ManageFooter,
   ManageHeader,
   ManageStatus,
-  Section,
   WorktreeList,
 } from './manage-components.mjs';
 
@@ -33,7 +32,7 @@ function searchEntries(entries, query) {
 
 export function ManageApp({ repoRoot, initialEntries }) {
   const { exit } = useApp();
-  const { columns } = useWindowSize();
+  const { columns, rows } = useWindowSize();
   const [entries, setEntries] = useState(initialEntries);
   const [selectedPath, setSelectedPath] = useState(initialEntries[0]?.path ?? null);
   const [query, setQuery] = useState('');
@@ -58,7 +57,13 @@ export function ManageApp({ repoRoot, initialEntries }) {
   const currentEntry = entries.find((entry) => entry.isMain) ?? null;
   const staleCount = entries.filter((entry) => entry.prunable).length;
   const mainCount = entries.filter((entry) => entry.isMain).length;
-  const wideLayout = columns >= 110;
+  const reservedLines = searchMode ? 13 : 11;
+  const visibleCount = Math.max(3, Math.floor((rows - reservedLines) / 2));
+  const windowStart = selectedIndex === -1
+    ? 0
+    : Math.max(0, Math.min(filteredEntries.length - visibleCount, selectedIndex - Math.floor(visibleCount / 2)));
+  const visibleEntries = filteredEntries.slice(windowStart, windowStart + visibleCount);
+  const windowEnd = Math.min(filteredEntries.length, windowStart + visibleCount);
   const detailKey = selectedEntry
     ? `${refreshTick}:${selectedEntry.path}:${selectedEntry.head ?? selectedEntry.branch ?? ''}`
     : null;
@@ -267,52 +272,39 @@ export function ManageApp({ repoRoot, initialEntries }) {
       entryCount: entries.length,
       staleCount,
       mainCount,
+      columns,
     }),
-    h(
-      Section,
-      { title: 'Navigator', borderColor: searchMode ? 'cyan' : 'gray' },
-      h(
-        Box,
-        { flexDirection: 'column' },
-        h(FilterPanel, {
-          query,
-          searchMode,
-          wideLayout,
-          filteredCount: filteredEntries.length,
-          selectedEntry,
-          setQuery: (value) => startTransition(() => setQuery(value)),
-          setSearchMode,
-          setStatus,
-        }),
-        h(
-          Box,
-          { flexDirection: wideLayout ? 'row' : 'column', columnGap: 2 },
-          h(
-            Section,
-            { title: `Worktrees (${filteredEntries.length})`, borderColor: 'blue' },
-            h(WorktreeList, {
-              entries: filteredEntries,
-              selectedEntry,
-              columns,
-              query,
-            })
-          ),
-          h(
-            Section,
-            { title: 'Details', borderColor: selectedEntry ? 'cyan' : 'gray' },
-            h(DetailsPane, {
-              currentCheckout,
-              selectedEntry,
-              details,
-              comparison,
-              columns,
-            })
-          )
-        )
-      )
-    ),
-    h(DeletePrompt, { confirmAction }),
+    h(FilterPanel, {
+      query,
+      searchMode,
+      filteredCount: filteredEntries.length,
+      selectedEntry,
+      setQuery: (value) => startTransition(() => setQuery(value)),
+      setSearchMode,
+      setStatus,
+    }),
+    h(WorktreeList, {
+      entries: visibleEntries,
+      selectedEntry,
+      columns,
+      query,
+      windowStart,
+      windowEnd,
+      totalCount: filteredEntries.length,
+    }),
+    h(DetailsPane, {
+      currentCheckout,
+      selectedEntry,
+      details,
+      comparison,
+      columns,
+    }),
+    h(DeletePrompt, { confirmAction, columns }),
     h(ManageStatus, { isRefreshing, status }),
-    h(ManageFooter, { selectedEntry })
+    h(ManageFooter, {
+      selectedEntry,
+      visibleCount: visibleEntries.length,
+      totalCount: filteredEntries.length,
+    })
   );
 }

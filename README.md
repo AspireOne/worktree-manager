@@ -2,7 +2,7 @@
 
 A small, standalone Git worktree manager for creating, preparing, browsing, removing, and merging isolated worktrees.
 
-![wtm demo screenshot](demo-screenshot.png)
+![wtm demo screenshot](https://github.com/AspireOne/worktree-manager/blob/main/demo-screenshot.png)
 
 ## Why
 

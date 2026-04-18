@@ -24,7 +24,7 @@ function getEntryTags(entry) {
 }
 
 function getEntryTagColor(entry, theme) {
-  if (entry.isMain) return theme.success;
+  if (entry.isMain) return theme.context;
   if (entry.prunable) return theme.warning;
   if (entry.locked) return theme.danger;
   if (entry.detached) return theme.accentStrong;
@@ -260,7 +260,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
       const branchLabel = cliTruncate(entry.branch ?? '(no branch)', branchWidth);
       const pathLabel = cliTruncate(displayPathPortable(entry.path), pathWidth);
       const tagItems = getEntryTags(entry);
-      const selectedColor = isSelected ? theme.accentStrong : (entry.isMain ? theme.success : theme.textPrimary);
+      const selectedColor = isSelected ? theme.accentStrong : (entry.isMain ? theme.context : theme.textPrimary);
       const isCurrentCheckout = entry.isMain;
       const tagText = tagItems.map((item) => `[${item}]`).join(' ');
 

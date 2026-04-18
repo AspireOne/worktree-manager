@@ -12,7 +12,4 @@ worktreeRoot = ".trees"
 
 # Setup commands run once after the worktree is created.
 # Available template variables: {target}, {branch}, {root}
-setup = [
-  "cp {root}/.env.example {target}/.env",
-  "cd {target} && pnpm install",
-]
+__SETUP_BLOCK__

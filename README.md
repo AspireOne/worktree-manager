@@ -77,18 +77,38 @@ wtc init
 ```
 
 This creates `.wt.config.toml` from the packaged example template and refuses to overwrite an existing file.
+`wtc init` keeps the file shape fixed and only auto-fills the `setup` commands when it can detect them confidently.
 
-**Example `.wt.config.toml`:**
+**Minimal `.wt.config.toml`:**
 
 ```toml
 baseBranch   = "main"
 worktreeRoot = ".trees"
 
 setup = [
-  "cp {root}/.env.example {target}/.env",
-  "cd {target} && pnpm install",
+  # add repo-specific setup commands here
 ]
 ```
+
+`wtc init` may emit more verbose but shell-agnostic generated commands than this minimal hand-written example so the auto-detected setup keeps working if you later switch `shell`.
+
+### `init` detection
+
+`wtc init` does not switch between multiple full templates. It always writes the same config file and only varies the generated `setup` list:
+
+- if `.env.example` exists, it adds a shell-agnostic copy command for `.env`
+- if `package.json` exists and the package manager can be inferred from a lockfile or `packageManager`, it adds the matching install command
+- if neither signal is present, it writes `setup = []`
+
+The generated commands are quoted and avoid shell-specific builtins like `cp` or `copy`, so they are more portable across the supported shells. They still assume the configured shell can invoke quoted `node -e "..."` commands.
+
+Current package-manager detection order:
+
+- `pnpm-lock.yaml` -> `pnpm install`
+- `package-lock.json` or `npm-shrinkwrap.json` -> `npm install`
+- `yarn.lock` -> `yarn install`
+- `bun.lock` or `bun.lockb` -> `bun install`
+- otherwise, `package.json#packageManager`
 
 ### Setup commands
 
@@ -121,15 +141,16 @@ If no `setup` is configured, the CLI just creates the worktree and exits.
 
 ## Manage UI
 
-Run `wtc manage` to open an interactive worktree list in the terminal.
+Run `wtc manage` to open an interactive worktree navigator in the terminal.
 
-- `↑` / `↓` move the selection
-- `d` deletes the selected worktree after a `y` confirmation
-- `D` deletes the selected worktree and force-deletes its local branch after a `y` confirmation
-- `r` refreshes the list
-- `q` exits
+- search by branch, path, or HEAD with `/`
+- inspect the selected worktree in a dedicated details pane
+- refresh the inventory with `r`
+- delete the selected worktree with `d`
+- delete the selected worktree and its local branch with `D`
+- quit with `q`
 
-The main checkout is shown in the list but cannot be removed from this screen.
+The main checkout is visible for context but cannot be removed from this screen.
 
 ## Package Layout
 

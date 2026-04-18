@@ -378,7 +378,7 @@ export function DeletePrompt({ confirmAction, columns, theme: themeConfig }) {
   );
 }
 
-export function ManageStatus({ isRefreshing, status, theme: themeConfig }) {
+export function ManageStatus({ isRefreshing, activityLabel = 'Refreshing worktree inventory', status, theme: themeConfig }) {
   const theme = resolveTheme(themeConfig);
   if (!isRefreshing && !status?.text) return null;
 
@@ -386,7 +386,7 @@ export function ManageStatus({ isRefreshing, status, theme: themeConfig }) {
     Box,
     { marginTop: 1 },
     isRefreshing
-      ? h(Spinner, { label: 'Refreshing worktree inventory' })
+      ? h(Spinner, { label: activityLabel })
       : h(ThemedStatusMessage, { variant: status.variant, theme }, status.text)
   );
 }
@@ -411,6 +411,8 @@ export function ManageFooter({ theme: themeConfig }) {
       h(Text, { color: theme.textMuted }, ' delete  '),
       h(Text, { color: theme.accent, bold: true }, 'D'),
       h(Text, { color: theme.textMuted }, ' delete branch  '),
+      h(Text, { color: theme.accent, bold: true }, 'M'),
+      h(Text, { color: theme.textMuted }, ' merge  '),
       h(Text, { color: theme.accent, bold: true }, 'q'),
       h(Text, { color: theme.textMuted }, ' quit')
     )

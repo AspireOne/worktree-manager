@@ -118,6 +118,35 @@ function resolveComparisonRef(entry) {
   return null;
 }
 
+function getCheckoutSnapshot(worktreePath) {
+  const branch = safeGitCapture(['symbolic-ref', '--quiet', '--short', 'HEAD'], worktreePath);
+  const head = safeGitCapture(['rev-parse', '--verify', 'HEAD'], worktreePath);
+
+  return { branch, head };
+}
+
+function getGitPath(worktreePath, name) {
+  return safeGitCapture(['rev-parse', '--git-path', name], worktreePath);
+}
+
+function getInProgressGitOperation(worktreePath) {
+  const markers = [
+    ['merge', 'MERGE_HEAD'],
+    ['rebase', 'rebase-merge'],
+    ['rebase', 'rebase-apply'],
+    ['cherry-pick', 'CHERRY_PICK_HEAD'],
+    ['revert', 'REVERT_HEAD'],
+    ['bisect', 'BISECT_LOG'],
+  ];
+
+  for (const [operation, marker] of markers) {
+    const markerPath = getGitPath(worktreePath, marker);
+    if (markerPath && existsSync(markerPath)) return operation;
+  }
+
+  return null;
+}
+
 function classifyMergeability(mergeBase, mergeCheck) {
   if (!mergeBase) return 'unknown';
   if (mergeCheck.ok) return 'clean';
@@ -289,6 +318,84 @@ export async function compareWorktreeRefs(repoRoot, currentEntry, selectedEntry)
     mergeable: classifyMergeability(mergeBase, mergeCheck),
     sameHead: currentOid === selectedOid,
   };
+}
+
+export async function mergeWorktreeIntoCurrent(repoRoot, currentEntry, selectedEntry) {
+  if (!currentEntry || !selectedEntry) {
+    return { variant: 'warning', text: 'No worktree selected to merge.' };
+  }
+
+  if (currentEntry.path === selectedEntry.path) {
+    return { variant: 'warning', text: 'Selected worktree is already the current checkout.' };
+  }
+
+  const currentSnapshot = getCheckoutSnapshot(currentEntry.path);
+  const selectedSnapshot = getCheckoutSnapshot(selectedEntry.path);
+
+  if (!currentSnapshot.branch) {
+    return { variant: 'warning', text: 'Current checkout must be on a branch before merging.' };
+  }
+
+  if (!selectedSnapshot.branch) {
+    return { variant: 'warning', text: 'Selected worktree must have a local branch to merge.' };
+  }
+
+  const currentDetails = inspectWorktree(currentEntry.path);
+  if ((currentDetails.dirtyCount ?? 0) > 0) {
+    return { variant: 'warning', text: 'Current checkout must be clean before merging.' };
+  }
+
+  const inProgressOperation = getInProgressGitOperation(currentEntry.path);
+  if (inProgressOperation) {
+    return { variant: 'warning', text: `Cannot merge while a ${inProgressOperation} is in progress.` };
+  }
+
+  const liveCurrentEntry = { ...currentEntry, branch: currentSnapshot.branch, head: currentSnapshot.head };
+  const liveSelectedEntry = { ...selectedEntry, branch: selectedSnapshot.branch, head: selectedSnapshot.head };
+  const comparison = await compareWorktreeRefs(repoRoot, liveCurrentEntry, liveSelectedEntry);
+  if (!comparison) {
+    return { variant: 'warning', text: 'Unable to compare the selected worktree with the current checkout.' };
+  }
+
+  if (comparison.selectedAhead === 0) {
+    return { variant: 'info', text: `${comparison.selectedRef} has no commits to merge into ${comparison.currentRef}.` };
+  }
+
+  if (comparison.mergeable !== 'clean') {
+    return {
+      variant: 'warning',
+      text: comparison.mergeable === 'conflicts'
+        ? `Cannot merge ${comparison.selectedRef}; static check found conflicts.`
+        : `Cannot merge ${comparison.selectedRef}; mergeability is unknown.`,
+    };
+  }
+
+  const latestCurrentSnapshot = getCheckoutSnapshot(currentEntry.path);
+  if (latestCurrentSnapshot.branch !== comparison.currentRef || latestCurrentSnapshot.head !== comparison.currentOid) {
+    return { variant: 'warning', text: 'Current checkout changed before merge; refresh and try again.' };
+  }
+
+  const latestSelectedSnapshot = getCheckoutSnapshot(selectedEntry.path);
+  if (latestSelectedSnapshot.branch !== comparison.selectedRef || latestSelectedSnapshot.head !== comparison.selectedOid) {
+    return { variant: 'warning', text: 'Selected worktree changed before merge; refresh and try again.' };
+  }
+
+  const latestCurrentDetails = inspectWorktree(currentEntry.path);
+  if ((latestCurrentDetails.dirtyCount ?? 0) > 0) {
+    return { variant: 'warning', text: 'Current checkout must be clean before merging.' };
+  }
+
+  const latestInProgressOperation = getInProgressGitOperation(currentEntry.path);
+  if (latestInProgressOperation) {
+    return { variant: 'warning', text: `Cannot merge while a ${latestInProgressOperation} is in progress.` };
+  }
+
+  const merged = tryGit(['merge', '--no-edit', comparison.selectedOid], currentEntry.path);
+  if (!merged.ok) {
+    return { variant: 'error', text: merged.error };
+  }
+
+  return { variant: 'success', text: `Merged ${comparison.selectedRef} into ${comparison.currentRef}.` };
 }
 
 export function removeWorktree(entry, repoRoot, removeBranch = false) {

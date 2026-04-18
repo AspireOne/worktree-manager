@@ -4,6 +4,7 @@ import {
   compareWorktreeRefs,
   getCurrentCheckoutContext,
   inspectWorktree,
+  mergeWorktreeIntoCurrent,
   parseWorktreeList,
   removeWorktree,
 } from './worktree.mjs';
@@ -42,6 +43,7 @@ export function ManageApp({ repoRoot, initialEntries, theme }) {
   const [confirmAction, setConfirmAction] = useState(null);
   const [details, setDetails] = useState({ loading: false, data: null });
   const [comparison, setComparison] = useState({ loading: false, data: null });
+  const [isMerging, setIsMerging] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [currentCheckout, setCurrentCheckout] = useState(() => getCurrentCheckoutContext(repoRoot));
   const detailCacheRef = useRef(new Map());
@@ -187,6 +189,30 @@ export function ManageApp({ repoRoot, initialEntries, theme }) {
     });
   };
 
+  const requestMerge = () => {
+    if (isMerging) return;
+
+    if (!selectedEntry || !currentEntry) {
+      setStatus({ variant: 'warning', text: 'No worktree selected to merge.' });
+      return;
+    }
+
+    setIsMerging(true);
+    setStatus({ variant: 'info', text: `Checking whether ${selectedEntry.branch ?? selectedEntry.head ?? 'selection'} can be merged...` });
+
+    Promise.resolve()
+      .then(() => mergeWorktreeIntoCurrent(repoRoot, currentEntry, selectedEntry))
+      .then((message) => {
+        setIsMerging(false);
+        refresh(message);
+      })
+      .catch((error) => {
+        setIsMerging(false);
+        setStatus({ variant: 'error', text: error.message ?? 'Merge failed.' });
+        refresh({ variant: 'error', text: error.message ?? 'Merge failed.' });
+      });
+  };
+
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       exit();
@@ -201,6 +227,11 @@ export function ManageApp({ repoRoot, initialEntries, theme }) {
 
       setConfirmAction(null);
       setStatus({ variant: 'info', text: 'Delete cancelled.' });
+      return;
+    }
+
+    if (isMerging) {
+      setStatus({ variant: 'info', text: 'Merge is still running.' });
       return;
     }
 
@@ -238,6 +269,11 @@ export function ManageApp({ repoRoot, initialEntries, theme }) {
 
     if (input === 'D') {
       requestDelete(true);
+      return;
+    }
+
+    if (input === 'M') {
+      requestMerge();
       return;
     }
 
@@ -301,7 +337,12 @@ export function ManageApp({ repoRoot, initialEntries, theme }) {
       theme,
     }),
     h(DeletePrompt, { confirmAction, columns, theme }),
-    h(ManageStatus, { isRefreshing, status, theme }),
+    h(ManageStatus, {
+      isRefreshing: isRefreshing || isMerging,
+      activityLabel: isMerging ? 'Merging selected worktree' : 'Refreshing worktree inventory',
+      status,
+      theme,
+    }),
     h(ManageFooter, {
       theme,
     })

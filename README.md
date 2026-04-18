@@ -169,6 +169,7 @@ Run `wtm manage` to open an interactive worktree navigator in the terminal.
 - refresh the inventory with `r`
 - delete the selected worktree with `d`
 - delete the selected worktree and its local branch with `D`
+- merge the selected worktree into the current checkout with `M` when the current checkout is clean and the static merge check reports no conflicts
 - quit with `q`
 
 The main checkout is visible for context but cannot be removed from this screen.

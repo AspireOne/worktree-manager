@@ -130,6 +130,26 @@ If no `setup` is configured, the CLI just creates the worktree and exits.
 | `worktreeRoot` | `".trees"` | Directory under repo root where worktrees are placed |
 | `shell` | system default | Shell used to run setup commands (`"bash"`, `"pwsh"`, etc.) |
 | `setup` | `[]` | Ordered list of shell commands to run after worktree creation |
+| `theme` | built-in palette | Optional `[theme]` table for `wtc manage` colors |
+
+### Manage UI theme
+
+You can override the interactive manage UI colors from either config file:
+
+```toml
+[theme]
+accent = "#c7a56f"
+accentStrong = "#e0bd83"
+context = "#c9a2a6"
+success = "#a8ba8e"
+warning = "#d1b070"
+danger = "#d09286"
+textPrimary = "#eadfce"
+textMuted = "#b7aa98"
+textDim = "#897e70"
+```
+
+These values map directly to Ink text colors. Named colors, hex colors, `rgb(...)`, and `ansi256(...)` values are supported.
 
 ## Behavior
 

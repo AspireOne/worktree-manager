@@ -30,7 +30,7 @@ function searchEntries(entries, query) {
   );
 }
 
-export function ManageApp({ repoRoot, initialEntries }) {
+export function ManageApp({ repoRoot, initialEntries, theme }) {
   const { exit } = useApp();
   const { columns, rows } = useWindowSize();
   const [entries, setEntries] = useState(initialEntries);
@@ -270,6 +270,7 @@ export function ManageApp({ repoRoot, initialEntries }) {
       staleCount,
       mainCount,
       columns,
+      theme,
     }),
     h(FilterPanel, {
       query,
@@ -279,6 +280,7 @@ export function ManageApp({ repoRoot, initialEntries }) {
       setQuery: (value) => startTransition(() => setQuery(value)),
       setSearchMode,
       setStatus,
+      theme,
     }),
     h(WorktreeList, {
       entries: visibleEntries,
@@ -288,6 +290,7 @@ export function ManageApp({ repoRoot, initialEntries }) {
       windowStart,
       windowEnd,
       totalCount: filteredEntries.length,
+      theme,
     }),
     h(DetailsPane, {
       currentCheckout,
@@ -295,13 +298,15 @@ export function ManageApp({ repoRoot, initialEntries }) {
       details,
       comparison,
       columns,
+      theme,
     }),
-    h(DeletePrompt, { confirmAction, columns }),
-    h(ManageStatus, { isRefreshing, status }),
+    h(DeletePrompt, { confirmAction, columns, theme }),
+    h(ManageStatus, { isRefreshing, status, theme }),
     h(ManageFooter, {
       selectedEntry,
       visibleCount: visibleEntries.length,
       totalCount: filteredEntries.length,
+      theme,
     })
   );
 }

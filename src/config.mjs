@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { parse as parseTomlDocument } from 'toml';
 import { die, log, warn } from './log.mjs';
+import { DEFAULT_THEME, resolveTheme } from './theme.mjs';
 
 const LOCAL_CONFIG_TEMPLATE_URL = new URL('../.wt.config.toml.example', import.meta.url);
 const SETUP_BLOCK_TOKEN = '__SETUP_BLOCK__';
@@ -12,6 +13,7 @@ const DEFAULTS = {
   worktreeRoot: '.trees',
   shell: true,
   setup: [],
+  theme: DEFAULT_THEME,
 };
 
 export function parseToml(src) {
@@ -135,5 +137,13 @@ export function bootstrapLocalConfig(targetDir = process.cwd()) {
 export function loadConfig(repoRoot) {
   const global = loadConfigFile(join(homedir(), '.config', 'wt', 'config.toml'));
   const local = loadConfigFile(join(repoRoot, '.wt.config.toml'));
-  return { ...DEFAULTS, ...global, ...local };
+  return {
+    ...DEFAULTS,
+    ...global,
+    ...local,
+    theme: resolveTheme({
+      ...(global.theme && typeof global.theme === 'object' ? global.theme : {}),
+      ...(local.theme && typeof local.theme === 'object' ? local.theme : {}),
+    }),
+  };
 }

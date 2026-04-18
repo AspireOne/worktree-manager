@@ -3,3 +3,15 @@
 
 baseBranch   = "main"
 worktreeRoot = ".trees"
+
+# Optional manage UI theme overrides.
+# [theme]
+# accent = "#c7a56f"
+# accentStrong = "#e0bd83"
+# context = "#c9a2a6"
+# success = "#a8ba8e"
+# warning = "#d1b070"
+# danger = "#d09286"
+# textPrimary = "#eadfce"
+# textMuted = "#b7aa98"
+# textDim = "#897e70"

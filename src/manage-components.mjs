@@ -2,15 +2,16 @@ import React from 'react';
 import { homedir } from 'node:os';
 import { sep } from 'node:path';
 import { Box, Text } from 'ink';
-import { Alert, Spinner, StatusMessage, TextInput } from '@inkjs/ui';
+import { Spinner, TextInput } from '@inkjs/ui';
 import cliTruncate from 'cli-truncate';
+import { resolveTheme } from './theme.mjs';
 
 const h = React.createElement;
 
-export function statColor(count) {
-  if (count === 0) return 'green';
-  if (count <= 2) return 'yellow';
-  return 'red';
+export function statColor(count, theme) {
+  if (count === 0) return theme.success;
+  if (count <= 2) return theme.warning;
+  return theme.danger;
 }
 
 function getEntryTags(entry) {
@@ -22,18 +23,18 @@ function getEntryTags(entry) {
   ].filter(Boolean);
 }
 
-function getEntryTagColor(entry) {
-  if (entry.isMain) return 'green';
-  if (entry.prunable) return 'yellow';
-  if (entry.locked) return 'red';
-  if (entry.detached) return 'cyan';
-  return 'blue';
+function getEntryTagColor(entry, theme) {
+  if (entry.isMain) return theme.success;
+  if (entry.prunable) return theme.warning;
+  if (entry.locked) return theme.danger;
+  if (entry.detached) return theme.accentStrong;
+  return theme.accent;
 }
 
-function mergeableColor(mergeable) {
-  if (mergeable === 'clean') return 'green';
-  if (mergeable === 'conflicts') return 'red';
-  return 'gray';
+function mergeableColor(mergeable, theme) {
+  if (mergeable === 'clean') return theme.success;
+  if (mergeable === 'conflicts') return theme.danger;
+  return theme.textMuted;
 }
 
 function mergeableLabel(mergeable) {
@@ -42,53 +43,96 @@ function mergeableLabel(mergeable) {
   return 'unknown';
 }
 
-function GitStatusSummary({ details }) {
+function variantColor(variant, theme) {
+  if (variant === 'success') return theme.success;
+  if (variant === 'warning') return theme.warning;
+  if (variant === 'error') return theme.danger;
+  return theme.accent;
+}
+
+function variantIcon(variant) {
+  if (variant === 'success') return '✓';
+  if (variant === 'warning') return '!';
+  if (variant === 'error') return 'x';
+  return 'i';
+}
+
+function ThemedAlert({ variant, title, children, theme }) {
+  const color = variantColor(variant, theme);
+
+  return h(
+    Box,
+    { borderStyle: 'round', borderColor: color, paddingX: 1, flexGrow: 1 },
+    h(Text, { color, bold: true }, variantIcon(variant)),
+    h(Text, { color: theme.textMuted }, ' '),
+    h(
+      Box,
+      { flexDirection: 'column', flexShrink: 1 },
+      title ? h(Text, { color, bold: true }, title) : null,
+      h(Text, { color: theme.textPrimary, wrap: 'wrap' }, children)
+    )
+  );
+}
+
+function ThemedStatusMessage({ variant, children, theme }) {
+  const color = variantColor(variant, theme);
+
+  return h(
+    Box,
+    { flexWrap: 'wrap' },
+    h(Text, { color, bold: true }, variantIcon(variant)),
+    h(Text, { color: theme.textMuted }, ' '),
+    h(Text, { color: theme.textPrimary, wrap: 'wrap' }, children)
+  );
+}
+
+function GitStatusSummary({ details, theme }) {
   if (!details) {
-    return h(Text, { color: 'gray' }, 'Status unavailable');
+    return h(Text, { color: theme.textMuted }, 'Status unavailable');
   }
 
   const parts = [];
   const pushPart = (key, color, text) => {
-    if (parts.length > 0) parts.push(h(Text, { key: `${key}-gap`, color: 'gray' }, ' '));
+    if (parts.length > 0) parts.push(h(Text, { key: `${key}-gap`, color: theme.textMuted }, ' '));
     parts.push(h(Text, { key, color, bold: true }, text));
   };
 
-  if ((details.stagedCount ?? 0) > 0) pushPart('staged', statColor(details.stagedCount ?? 0), `+${details.stagedCount}`);
-  if ((details.unstagedCount ?? 0) > 0) pushPart('unstaged', statColor(details.unstagedCount ?? 0), `~${details.unstagedCount}`);
-  if ((details.untrackedCount ?? 0) > 0) pushPart('untracked', statColor(details.untrackedCount ?? 0), `?${details.untrackedCount}`);
-  if ((details.aheadCount ?? 0) > 0) pushPart('ahead', statColor(details.aheadCount ?? 0), `⇡${details.aheadCount}`);
-  if ((details.behindCount ?? 0) > 0) pushPart('behind', statColor(details.behindCount ?? 0), `⇣${details.behindCount}`);
+  if ((details.stagedCount ?? 0) > 0) pushPart('staged', statColor(details.stagedCount ?? 0, theme), `+${details.stagedCount}`);
+  if ((details.unstagedCount ?? 0) > 0) pushPart('unstaged', statColor(details.unstagedCount ?? 0, theme), `~${details.unstagedCount}`);
+  if ((details.untrackedCount ?? 0) > 0) pushPart('untracked', statColor(details.untrackedCount ?? 0, theme), `?${details.untrackedCount}`);
+  if ((details.aheadCount ?? 0) > 0) pushPart('ahead', statColor(details.aheadCount ?? 0, theme), `⇡${details.aheadCount}`);
+  if ((details.behindCount ?? 0) > 0) pushPart('behind', statColor(details.behindCount ?? 0, theme), `⇣${details.behindCount}`);
 
   if (parts.length === 0) {
-    pushPart('clean', 'green', 'clean');
+    pushPart('clean', theme.success, 'clean');
   }
 
   return h(Box, { flexWrap: 'wrap' }, ...parts);
 }
 
-function InlineTagList({ entry }) {
+function InlineTagList({ entry, theme }) {
   const items = getEntryTags(entry);
-  if (!items.length) return h(Text, { color: 'gray' }, 'no tags');
+  if (!items.length) return h(Text, { color: theme.textMuted }, 'no tags');
 
   return h(
     Box,
     { flexWrap: 'wrap' },
     ...items.flatMap((item, index) => [
-      index > 0 ? h(Text, { key: `${item}-sep`, color: 'gray' }, ' ') : null,
-      h(Text, { key: item, color: getEntryTagColor(entry), dimColor: true }, `[${item}]`),
+      index > 0 ? h(Text, { key: `${item}-sep`, color: theme.textMuted }, ' ') : null,
+      h(Text, { key: item, color: getEntryTagColor(entry, theme), dimColor: true }, `[${item}]`),
     ].filter(Boolean))
   );
 }
 
-function DetailLine({ label, children, color = 'white' }) {
+function DetailLine({ label, children, color, theme }) {
   const content = typeof children === 'string'
-    ? h(Text, { color, wrap: 'wrap' }, children)
+    ? h(Text, { color: color ?? theme.textPrimary, wrap: 'wrap' }, children)
     : children;
 
   return h(
     Box,
     { flexWrap: 'wrap' },
-    h(Text, { color: 'gray', bold: true }, `${label}: `),
+    h(Text, { color: theme.textMuted, bold: true }, `${label}: `),
     content
   );
 }
@@ -117,21 +161,22 @@ function displayPathPortable(worktreePath) {
   return displayPath(worktreePath).replaceAll('\\', '/');
 }
 
-export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount, columns }) {
+export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount, columns, theme: themeConfig }) {
+  const theme = resolveTheme(themeConfig);
   const repoLabel = cliTruncate(displayPathPortable(repoRoot), Math.max(16, columns - 34));
 
   return h(
     Box,
     { marginBottom: 1, flexWrap: 'wrap' },
-    h(Text, { color: 'cyan', bold: true }, 'wtc manage'),
-    h(Text, { color: 'gray' }, '  '),
-    h(Text, { color: 'gray' }, repoLabel),
-    h(Text, { color: 'gray' }, '  '),
-    h(Text, { color: 'blue', bold: true }, `${entryCount} worktrees`),
-    h(Text, { color: 'gray' }, '  '),
-    h(Text, { color: statColor(staleCount), bold: true }, `${staleCount} stale`),
-    h(Text, { color: 'gray' }, '  '),
-    h(Text, { color: statColor(entryCount - mainCount), bold: true }, `${entryCount - mainCount} branches`)
+    h(Text, { color: theme.accentStrong, bold: true }, 'wtc manage'),
+    h(Text, { color: theme.textMuted }, '  '),
+    h(Text, { color: theme.textMuted }, repoLabel),
+    h(Text, { color: theme.textMuted }, '  '),
+    h(Text, { color: theme.accent, bold: true }, `${entryCount} worktrees`),
+    h(Text, { color: theme.textMuted }, '  '),
+    h(Text, { color: statColor(staleCount, theme), bold: true }, `${staleCount} stale`),
+    h(Text, { color: theme.textMuted }, '  '),
+    h(Text, { color: statColor(entryCount - mainCount, theme), bold: true }, `${entryCount - mainCount} branches`)
   );
 }
 
@@ -143,7 +188,9 @@ export function FilterPanel({
   setQuery,
   setSearchMode,
   setStatus,
+  theme: themeConfig,
 }) {
+  const theme = resolveTheme(themeConfig);
   return h(
     Box,
     { flexDirection: 'column', marginBottom: 1 },
@@ -151,7 +198,7 @@ export function FilterPanel({
       ? h(
         Box,
         { flexWrap: 'wrap' },
-        h(Text, { color: 'cyan', bold: true }, 'filter> '),
+        h(Text, { color: theme.accentStrong, bold: true }, 'filter> '),
         h(TextInput, {
           placeholder: 'branch, path, or HEAD',
           defaultValue: query,
@@ -168,23 +215,24 @@ export function FilterPanel({
       : h(
         Box,
         { flexWrap: 'wrap' },
-        h(Text, { color: 'gray', bold: true }, 'filter: '),
-        h(Text, { color: query ? 'blue' : 'gray', bold: Boolean(query) }, query || 'Press / to filter worktrees')
+        h(Text, { color: theme.textMuted, bold: true }, 'filter: '),
+        h(Text, { color: query ? theme.accent : theme.textMuted, bold: Boolean(query) }, query || 'Press / to filter worktrees')
       ),
     h(
       Box,
       { flexWrap: 'wrap' },
-      h(Text, { color: 'gray', bold: true }, 'comparing: '),
-      h(Text, { color: 'magenta', bold: true }, currentCheckout.label)
+      h(Text, { color: theme.textMuted, bold: true }, 'comparing: '),
+      h(Text, { color: theme.context, bold: true }, currentCheckout.label)
     )
   );
 }
 
-export function WorktreeList({ entries, selectedEntry, columns, query, windowStart, windowEnd, totalCount }) {
+export function WorktreeList({ entries, selectedEntry, columns, query, windowStart, windowEnd, totalCount, theme: themeConfig }) {
+  const theme = resolveTheme(themeConfig);
   if (entries.length === 0) {
     return h(
-      Alert,
-      { variant: 'warning', title: 'Nothing matches the current filter' },
+      ThemedAlert,
+      { variant: 'warning', title: 'Nothing matches the current filter', theme },
       query ? 'Clear or edit the filter to see more worktrees.' : 'No worktrees found.'
     );
   }
@@ -200,7 +248,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
       ? h(
         Box,
         { marginBottom: 1, flexWrap: 'wrap' },
-        h(Text, { color: 'gray', bold: true }, `showing ${windowStart + 1}-${windowEnd} of ${totalCount}`)
+        h(Text, { color: theme.textMuted, bold: true }, `showing ${windowStart + 1}-${windowEnd} of ${totalCount}`)
       )
       : null,
     ...entries.map((entry, index) => {
@@ -208,7 +256,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
       const branchLabel = cliTruncate(entry.branch ?? '(no branch)', branchWidth);
       const pathLabel = cliTruncate(displayPathPortable(entry.path), pathWidth);
       const tagItems = getEntryTags(entry);
-      const selectedColor = isSelected ? 'cyan' : (entry.isMain ? 'green' : 'white');
+      const selectedColor = isSelected ? theme.accentStrong : (entry.isMain ? theme.success : theme.textPrimary);
       const tagText = tagItems.map((item) => `[${item}]`).join(' ');
 
       return h(
@@ -222,23 +270,22 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
           Box,
           { flexWrap: 'wrap' },
           h(Text, { color: selectedColor, bold: isSelected }, `${isSelected ? '>' : ' '} ${branchLabel}`),
-          h(Text, { color: 'gray' }, '  '),
-          h(Text, { color: isSelected ? 'blue' : 'gray', bold: isSelected }, pathLabel),
-          tagText ? h(Text, { color: 'gray' }, '  ') : null,
-          tagText ? h(Text, { color: 'gray', dimColor: true }, tagText) : null,
+          h(Text, { color: theme.textMuted }, '  '),
+          h(Text, { color: isSelected ? theme.accent : theme.textMuted, bold: isSelected }, pathLabel),
+          tagText ? h(Text, { color: theme.textMuted }, '  ') : null,
+          tagText ? h(Text, { color: theme.textMuted, dimColor: true }, tagText) : null,
         ),
       );
     })
   );
 }
 
-export function DetailsPane({ currentCheckout, selectedEntry, details, comparison, columns }) {
+export function DetailsPane({ currentCheckout, selectedEntry, details, comparison, columns, theme: themeConfig }) {
+  const theme = resolveTheme(themeConfig);
   if (!selectedEntry) {
-    return h(Text, { color: 'gray' }, 'No worktree selected.');
+    return h(Text, { color: theme.textMuted }, 'No worktree selected.');
   }
 
-  const highlightedLabel = selectedEntry.branch ?? `${selectedEntry.head?.slice(0, 12) ?? 'unknown'}`;
-  const selectedPathLabel = cliTruncate(displayPathPortable(selectedEntry.path), Math.max(24, columns - 4));
   const relationText = comparison.loading
     ? 'comparing...'
     : comparison.data
@@ -263,32 +310,34 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
   return h(
     Box,
     { flexDirection: 'column', marginBottom: 1 },
-    h(Text, { color: 'cyan', bold: true }, highlightedLabel),
-    h(Text, { color: 'gray', dimColor: true }, selectedPathLabel),
-    h(DetailLine, { label: 'commit' }, details.loading ? 'loading...' : stripCommitHash(details.data?.lastCommit)),
+    h(DetailLine, { label: 'commit', theme }, details.loading ? 'loading...' : stripCommitHash(details.data?.lastCommit)),
     h(DetailLine, {
       label: 'git status',
-      color: details.data?.dirtyCount ? 'yellow' : 'green',
-    }, details.loading ? 'inspecting worktree state...' : h(GitStatusSummary, { details: details.data })),
-    h(DetailLine, { label: 'commits', color: comparison.data?.sameHead ? 'green' : 'yellow' }, relationText),
+      color: details.data?.dirtyCount ? theme.warning : theme.success,
+      theme,
+    }, details.loading ? 'inspecting worktree state...' : h(GitStatusSummary, { details: details.data, theme })),
+    h(DetailLine, { label: 'commits', color: comparison.data?.sameHead ? theme.success : theme.warning, theme }, relationText),
     (
       comparison.loading
         ? h(Spinner, { label: 'Comparing branches' })
         : h(
           Box,
           { flexDirection: 'column' },
-          diffText ? h(DetailLine, { label: 'diff', color: statColor(comparison.data?.tipDiffFiles ?? 0) }, diffText) : null,
-          mergeText ? h(DetailLine, { label: 'merge', color: mergeableColor(comparison.data?.mergeable) }, mergeText) : null,
+          diffText ? h(DetailLine, { label: 'diff', color: statColor(comparison.data?.tipDiffFiles ?? 0, theme), theme }, diffText) : null,
+          mergeText ? h(DetailLine, { label: 'merge', color: mergeableColor(comparison.data?.mergeable, theme), theme }, mergeText) : null,
         )
     ),
     details.loading
       ? h(Spinner, { label: 'Collecting git metadata' })
       : null,
-    tagItems.length > 0 ? h(DetailLine, { label: 'tags' }, h(InlineTagList, { entry: selectedEntry })) : null
+    tagItems.length > 0
+      ? h(DetailLine, { label: 'tags', theme }, h(InlineTagList, { entry: selectedEntry, theme }))
+      : null
   );
 }
 
-export function DeletePrompt({ confirmAction, columns }) {
+export function DeletePrompt({ confirmAction, columns, theme: themeConfig }) {
+  const theme = resolveTheme(themeConfig);
   if (!confirmAction) return null;
 
   const label = confirmAction.removeBranch ? 'delete worktree + branch?' : 'delete worktree?';
@@ -299,12 +348,13 @@ export function DeletePrompt({ confirmAction, columns }) {
   return h(
     Box,
     { marginTop: 1 },
-    h(Text, { color: confirmAction.removeBranch ? 'red' : 'yellow', bold: true }, label),
-    h(Text, { color: 'gray' }, ` ${cliTruncate(message, Math.max(24, columns - 2))}`)
+    h(Text, { color: confirmAction.removeBranch ? theme.danger : theme.warning, bold: true }, label),
+    h(Text, { color: theme.textMuted }, ` ${cliTruncate(message, Math.max(24, columns - 2))}`)
   );
 }
 
-export function ManageStatus({ isRefreshing, status }) {
+export function ManageStatus({ isRefreshing, status, theme: themeConfig }) {
+  const theme = resolveTheme(themeConfig);
   if (!isRefreshing && !status?.text) return null;
 
   return h(
@@ -312,11 +362,12 @@ export function ManageStatus({ isRefreshing, status }) {
     { marginTop: 1 },
     isRefreshing
       ? h(Spinner, { label: 'Refreshing worktree inventory' })
-      : h(StatusMessage, { variant: status.variant }, status.text)
+      : h(ThemedStatusMessage, { variant: status.variant, theme }, status.text)
   );
 }
 
-export function ManageFooter({ selectedEntry, visibleCount, totalCount }) {
+export function ManageFooter({ selectedEntry, visibleCount, totalCount, theme: themeConfig }) {
+  const theme = resolveTheme(themeConfig);
   const selectedLabel = selectedEntry?.branch ?? selectedEntry?.head?.slice(0, 12) ?? null;
 
   return h(
@@ -325,26 +376,26 @@ export function ManageFooter({ selectedEntry, visibleCount, totalCount }) {
     h(
       Box,
       { flexWrap: 'wrap' },
-      h(Text, { color: 'gray' }, ' '),
-      h(Text, { color: 'blue', bold: true }, '↑↓'),
-      h(Text, { color: 'gray' }, ' move  '),
-      h(Text, { color: 'blue', bold: true }, '/'),
-      h(Text, { color: 'gray' }, ' filter  '),
-      h(Text, { color: 'blue', bold: true }, 'r'),
-      h(Text, { color: 'gray' }, ' refresh  '),
-      h(Text, { color: 'blue', bold: true }, 'd'),
-      h(Text, { color: 'gray' }, ' delete  '),
-      h(Text, { color: 'blue', bold: true }, 'q'),
-      h(Text, { color: 'gray' }, ' quit')
+      h(Text, { color: theme.textMuted }, ' '),
+      h(Text, { color: theme.accent, bold: true }, '↑↓'),
+      h(Text, { color: theme.textMuted }, ' move  '),
+      h(Text, { color: theme.accent, bold: true }, '/'),
+      h(Text, { color: theme.textMuted }, ' filter  '),
+      h(Text, { color: theme.accent, bold: true }, 'r'),
+      h(Text, { color: theme.textMuted }, ' refresh  '),
+      h(Text, { color: theme.accent, bold: true }, 'd'),
+      h(Text, { color: theme.textMuted }, ' delete  '),
+      h(Text, { color: theme.accent, bold: true }, 'q'),
+      h(Text, { color: theme.textMuted }, ' quit')
     ),
     h(
       Box,
       { flexWrap: 'wrap' },
-      selectedLabel ? h(Text, { color: 'gray' }, 'selected ') : null,
-      selectedLabel ? h(Text, { color: 'cyan', bold: true }, selectedLabel) : null,
-      selectedLabel ? h(Text, { color: 'gray' }, '  ') : null,
-      h(Text, { color: 'gray' }, 'shown '),
-      h(Text, { color: 'blue', bold: true }, `${visibleCount}/${totalCount}`)
+      selectedLabel ? h(Text, { color: theme.textMuted }, 'selected ') : null,
+      selectedLabel ? h(Text, { color: theme.accentStrong, bold: true }, selectedLabel) : null,
+      selectedLabel ? h(Text, { color: theme.textMuted }, '  ') : null,
+      h(Text, { color: theme.textMuted }, 'shown '),
+      h(Text, { color: theme.accent, bold: true }, `${visibleCount}/${totalCount}`)
     )
   );
 }

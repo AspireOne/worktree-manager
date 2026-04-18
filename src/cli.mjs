@@ -45,17 +45,16 @@ export async function main() {
   }
 
   const repoRoot = getRepoRoot();
+  const config = loadConfig(repoRoot);
 
   if (cli.command === 'manage') {
     try {
-      await runManageUI(repoRoot);
+      await runManageUI(repoRoot, config.theme);
       return;
     } catch (error) {
       die(error.message);
     }
   }
-
-  const config = loadConfig(repoRoot);
 
   const baseBranch = cli.base ?? config.baseBranch;
   const branchName = cli.branch;

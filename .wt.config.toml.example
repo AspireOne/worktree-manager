@@ -10,6 +10,19 @@ worktreeRoot = ".trees"
 # shell = "bash"
 # shell = "pwsh"
 
+# Optional: customize manage UI colors.
+# Supported values are Ink text colors: terminal color names, hex, rgb(...), or ansi256(...).
+# [theme]
+# accent = "#c7a56f"
+# accentStrong = "#e0bd83"
+# context = "#c9a2a6"
+# success = "#a8ba8e"
+# warning = "#d1b070"
+# danger = "#d09286"
+# textPrimary = "#eadfce"
+# textMuted = "#b7aa98"
+# textDim = "#897e70"
+
 # Setup commands run once after the worktree is created.
 # Available template variables: {target}, {branch}, {root}
 __SETUP_BLOCK__

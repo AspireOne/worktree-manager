@@ -146,13 +146,17 @@ function displayPath(worktreePath) {
   const home = homedir();
   const isWindows = sep === '\\';
   const pathValue = worktreePath ?? '';
+  const comparablePath = isWindows ? pathValue.replaceAll('/', '\\') : pathValue;
+  const comparableHome = isWindows ? home.replaceAll('/', '\\') : home;
+  const homeBoundary = `${comparableHome}${sep}`;
   const homeMatch = isWindows
-    ? pathValue.toLowerCase().startsWith(home.toLowerCase())
-    : pathValue.startsWith(home);
+    ? comparablePath.toLowerCase() === comparableHome.toLowerCase()
+      || comparablePath.toLowerCase().startsWith(homeBoundary.toLowerCase())
+    : comparablePath === comparableHome || comparablePath.startsWith(homeBoundary);
 
   if (!homeMatch) return pathValue;
 
-  const suffix = pathValue.slice(home.length);
+  const suffix = comparablePath.slice(comparableHome.length);
   if (!suffix) return '~';
   return `~${suffix}`;
 }

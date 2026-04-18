@@ -138,15 +138,15 @@ You can override the interactive manage UI colors from either config file:
 
 ```toml
 [theme]
-accent = "#c7a56f"
-accentStrong = "#e0bd83"
-context = "#c9a2a6"
-success = "#a8ba8e"
-warning = "#d1b070"
-danger = "#d09286"
-textPrimary = "#eadfce"
-textMuted = "#b7aa98"
-textDim = "#897e70"
+accent = "#d7b36e"
+accentStrong = "#f0c98f"
+context = "#9fb7b2"
+success = "#acc795"
+warning = "#dda35f"
+danger = "#dc8f82"
+textPrimary = "#f0e4d2"
+textMuted = "#a89c8d"
+textDim = "#746b61"
 ```
 
 These values map directly to Ink text colors. Named colors, hex colors, `rgb(...)`, and `ansi256(...)` values are supported.

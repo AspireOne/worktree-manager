@@ -113,8 +113,12 @@ function displayPath(worktreePath) {
   return `~${suffix}`;
 }
 
+function displayPathPortable(worktreePath) {
+  return displayPath(worktreePath).replaceAll('\\', '/');
+}
+
 export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount, columns }) {
-  const repoLabel = cliTruncate(repoRoot, Math.max(16, columns - 34));
+  const repoLabel = cliTruncate(displayPathPortable(repoRoot), Math.max(16, columns - 34));
 
   return h(
     Box,
@@ -186,8 +190,8 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
   }
 
   const showWindowMeta = totalCount > entries.length;
-  const branchWidth = Math.max(12, columns - 34);
-  const pathWidth = Math.max(18, columns - 6);
+  const branchWidth = Math.max(12, Math.floor(columns * 0.32));
+  const pathWidth = Math.max(18, columns - branchWidth - 10);
 
   return h(
     Box,
@@ -202,7 +206,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
     ...entries.map((entry, index) => {
       const isSelected = selectedEntry?.path === entry.path;
       const branchLabel = cliTruncate(entry.branch ?? '(no branch)', branchWidth);
-      const pathLabel = cliTruncate(displayPath(entry.path), pathWidth);
+      const pathLabel = cliTruncate(displayPathPortable(entry.path), pathWidth);
       const tagItems = getEntryTags(entry);
       const selectedColor = isSelected ? 'cyan' : (entry.isMain ? 'green' : 'white');
       const tagText = tagItems.map((item) => `[${item}]`).join(' ');
@@ -212,16 +216,17 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
         {
           key: entry.path,
           flexDirection: 'column',
-          marginBottom: index === entries.length - 1 ? 0 : 1,
+          marginBottom: 0,
         },
         h(
           Box,
           { flexWrap: 'wrap' },
           h(Text, { color: selectedColor, bold: isSelected }, `${isSelected ? '>' : ' '} ${branchLabel}`),
+          h(Text, { color: 'gray' }, '  '),
+          h(Text, { color: 'gray' }, pathLabel),
           tagText ? h(Text, { color: 'gray' }, '  ') : null,
           tagText ? h(Text, { color: 'gray', dimColor: true }, tagText) : null,
         ),
-        h(Text, { color: 'gray' }, `  ${pathLabel}`),
       );
     })
   );
@@ -297,6 +302,8 @@ export function DeletePrompt({ confirmAction, columns }) {
 }
 
 export function ManageStatus({ isRefreshing, status }) {
+  if (!isRefreshing && !status?.text) return null;
+
   return h(
     Box,
     { marginTop: 1 },
@@ -311,6 +318,6 @@ export function ManageFooter({ selectedEntry, visibleCount, totalCount }) {
     Box,
     { marginTop: 1, justifyContent: 'space-between', flexWrap: 'wrap' },
     h(Text, { color: 'gray' }, '↑↓ move  / filter  r refresh  d delete  q quit'),
-    h(Text, { color: 'gray' }, `${visibleCount}/${totalCount} shown${selectedEntry ? `  ${selectedEntry.branch ?? displayPath(selectedEntry.path)}` : ''}`)
+    h(Text, { color: 'gray' }, `${visibleCount}/${totalCount} shown`)
   );
 }

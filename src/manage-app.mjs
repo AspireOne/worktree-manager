@@ -37,10 +37,7 @@ export function ManageApp({ repoRoot, initialEntries }) {
   const [selectedPath, setSelectedPath] = useState(initialEntries[0]?.path ?? null);
   const [query, setQuery] = useState('');
   const [searchMode, setSearchMode] = useState(false);
-  const [status, setStatus] = useState({
-    variant: 'info',
-    text: 'Search with /. Refresh with r. Destructive actions require confirmation.',
-  });
+  const [status, setStatus] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [details, setDetails] = useState({ loading: false, data: null });

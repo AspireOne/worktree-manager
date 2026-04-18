@@ -1,4 +1,4 @@
-# wtc
+# wtm
 
 A minimal Git worktree launcher for parallel agentic coding with [Codex CLI](https://github.com/openai/codex).
 
@@ -6,17 +6,17 @@ A minimal Git worktree launcher for parallel agentic coding with [Codex CLI](htt
 
 Codex CLI has no native worktree support. Running multiple agents in the same working directory causes file conflicts and makes it hard to parallelize independent tasks.
 
-The solution is one Git worktree per task - each agent gets its own isolated directory and branch to work in, with no interference between sessions. `wtc` automates the boilerplate: create the branch, create the worktree, run repo-specific setup, and optionally launch Codex right away.
+The solution is one Git worktree per task - each agent gets its own isolated directory and branch to work in, with no interference between sessions. `wtm` automates the boilerplate: create the branch, create the worktree, run repo-specific setup, and optionally launch Codex right away.
 
 ## Usage
 
 ```bash
-wtc feat/auth-refactor           # create worktree + run setup, print cd command
-wtc fix/login-race --now         # same, then immediately launch codex
-wtc feat/thing --base develop    # branch off develop instead of main
-wtc feat/auth-refactor           # already exists? reattaches idempotently
-wtc init                         # write .wt.config.toml into the current directory
-wtc manage                       # interactive worktree browser / remover
+wtm feat/auth-refactor           # create worktree + run setup, print cd command
+wtm fix/login-race --now         # same, then immediately launch codex
+wtm feat/thing --base develop    # branch off develop instead of main
+wtm feat/auth-refactor           # already exists? reattaches idempotently
+wtm init                         # write .wtm.config.toml into the current directory
+wtm manage                       # interactive worktree browser / remover
 ```
 
 Worktrees are placed under `.trees/` in the repo root:
@@ -43,14 +43,14 @@ pnpm link --global
 To run the local checkout without linking it globally, use either:
 
 ```bash
-pnpm wtc -- manage
-node ./bin/wtc.js manage
+pnpm wtm -- manage
+node ./bin/wtm.js manage
 ```
 
-That exposes the `wtc` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
+That exposes the `wtm` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
 
 ```bash
-pnpm add -g @aspireone/wt
+pnpm add -g @aspireone/wtm
 ```
 
 Keep `.trees/` in your repo's `.gitignore`:
@@ -61,25 +61,25 @@ echo ".trees/" >> .gitignore
 
 ## Config
 
-`wtc` looks for config in two places, merged in this order (higher overrides lower):
+`wtm` looks for config in two places, merged in this order (higher overrides lower):
 
 | File | Scope |
 |---|---|
-| `~/.config/wt/config.toml` | Global defaults for all repos |
-| `.wt.config.toml` (repo root) | Per-repo config, commit this |
+| `~/.config/wtm/config.toml` | Global defaults for all repos |
+| `.wtm.config.toml` (repo root) | Per-repo config, commit this |
 
 CLI flags override both.
 
 To bootstrap a repo-local config file in the current directory, run:
 
 ```bash
-wtc init
+wtm init
 ```
 
-This creates `.wt.config.toml` from the packaged example template and refuses to overwrite an existing file.
-`wtc init` keeps the file shape fixed and only auto-fills the `setup` commands when it can detect them confidently.
+This creates `.wtm.config.toml` from the packaged example template and refuses to overwrite an existing file.
+`wtm init` keeps the file shape fixed and only auto-fills the `setup` commands when it can detect them confidently.
 
-**Minimal `.wt.config.toml`:**
+**Minimal `.wtm.config.toml`:**
 
 ```toml
 baseBranch   = "main"
@@ -90,11 +90,11 @@ setup = [
 ]
 ```
 
-`wtc init` may emit more verbose but shell-agnostic generated commands than this minimal hand-written example so the auto-detected setup keeps working if you later switch `shell`.
+`wtm init` may emit more verbose but shell-agnostic generated commands than this minimal hand-written example so the auto-detected setup keeps working if you later switch `shell`.
 
 ### `init` detection
 
-`wtc init` does not switch between multiple full templates. It always writes the same config file and only varies the generated `setup` list:
+`wtm init` does not switch between multiple full templates. It always writes the same config file and only varies the generated `setup` list:
 
 - if `.env.example` exists, it adds a shell-agnostic copy command for `.env`
 - if `package.json` exists and the package manager can be inferred from a lockfile or `packageManager`, it adds the matching install command
@@ -130,7 +130,7 @@ If no `setup` is configured, the CLI just creates the worktree and exits.
 | `worktreeRoot` | `".trees"` | Directory under repo root where worktrees are placed |
 | `shell` | system default | Shell used to run setup commands (`"bash"`, `"pwsh"`, etc.) |
 | `setup` | `[]` | Ordered list of shell commands to run after worktree creation |
-| `theme` | built-in palette | Optional `[theme]` table for `wtc manage` colors |
+| `theme` | built-in palette | Optional `[theme]` table for `wtm manage` colors |
 
 ### Manage UI theme
 
@@ -162,7 +162,7 @@ These values map directly to Ink text colors. Named colors, hex colors, `rgb(...
 
 ## Manage UI
 
-Run `wtc manage` to open an interactive worktree navigator in the terminal.
+Run `wtm manage` to open an interactive worktree navigator in the terminal.
 
 - search by branch, path, or HEAD with `/`
 - inspect the selected worktree in a dedicated details pane
@@ -176,7 +176,7 @@ The main checkout is visible for context but cannot be removed from this screen.
 ## Package Layout
 
 ```text
-bin/wtc.js     npm-exposed executable
+bin/wtm.js     npm-exposed executable
 src/cli.mjs    implementation
 scripts/       release automation
 package.json   npm package metadata

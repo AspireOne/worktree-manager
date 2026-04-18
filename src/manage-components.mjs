@@ -172,7 +172,7 @@ export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount, colu
   return h(
     Box,
     { marginBottom: 1, flexWrap: 'wrap' },
-    h(Text, { color: theme.accentStrong, bold: true }, 'wtc manage'),
+    h(Text, { color: theme.accentStrong, bold: true }, 'wtm manage'),
     h(Text, { color: theme.textMuted }, '  '),
     h(Text, { color: theme.textMuted }, repoLabel),
     h(Text, { color: theme.textMuted }, '  '),

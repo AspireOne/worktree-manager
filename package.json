@@ -1,18 +1,18 @@
 {
-  "name": "@aspireone/wt",
+  "name": "@aspireone/wtm",
   "version": "0.1.5",
   "description": "Minimal git worktree launcher for parallel Codex workflows",
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "bin": {
-    "wtc": "./bin/wtc.js"
+    "wtm": "./bin/wtm.js"
   },
   "files": [
     "bin/",
     "src/",
     "scripts/",
     "README.md",
-    ".wt.config.toml.example",
+    ".wtm.config.toml.example",
     "config.toml.global.example"
   ],
   "publishConfig": {
@@ -22,8 +22,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node ./bin/wtc.js",
-    "wtc": "node ./bin/wtc.js",
+    "start": "node ./bin/wtm.js",
+    "wtm": "node ./bin/wtm.js",
     "pack:check": "node ./scripts/pack-check.mjs",
     "release": "node ./scripts/release.mjs",
     "release:patch": "node ./scripts/release.mjs patch",

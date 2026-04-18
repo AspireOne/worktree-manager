@@ -5,7 +5,7 @@ import { parse as parseTomlDocument } from 'toml';
 import { die, log, warn } from './log.mjs';
 import { DEFAULT_THEME, resolveTheme } from './theme.mjs';
 
-const LOCAL_CONFIG_TEMPLATE_URL = new URL('../.wt.config.toml.example', import.meta.url);
+const LOCAL_CONFIG_TEMPLATE_URL = new URL('../.wtm.config.toml.example', import.meta.url);
 const SETUP_BLOCK_TOKEN = '__SETUP_BLOCK__';
 
 const DEFAULTS = {
@@ -113,7 +113,7 @@ function renderSetupBlock(commands) {
 }
 
 export function bootstrapLocalConfig(targetDir = process.cwd()) {
-  const targetPath = resolve(join(targetDir, '.wt.config.toml'));
+  const targetPath = resolve(join(targetDir, '.wtm.config.toml'));
 
   if (existsSync(targetPath)) {
     die(`Config already exists at ${targetPath}`);
@@ -135,8 +135,8 @@ export function bootstrapLocalConfig(targetDir = process.cwd()) {
 }
 
 export function loadConfig(repoRoot) {
-  const global = loadConfigFile(join(homedir(), '.config', 'wt', 'config.toml'));
-  const local = loadConfigFile(join(repoRoot, '.wt.config.toml'));
+  const global = loadConfigFile(join(homedir(), '.config', 'wtm', 'config.toml'));
+  const local = loadConfigFile(join(repoRoot, '.wtm.config.toml'));
   return {
     ...DEFAULTS,
     ...global,

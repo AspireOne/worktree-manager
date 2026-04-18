@@ -1,8 +1,8 @@
 import chalk from 'chalk';
 
-const logPrefix = chalk.bold.hex('#2ec4b6')('wt');
-const warnPrefix = chalk.bold.hex('#ff9f1c')('wt  warn');
-const errorPrefix = chalk.bold.hex('#e71d36')('wt  error');
+const logPrefix = chalk.bold.hex('#2ec4b6')('wtm');
+const warnPrefix = chalk.bold.hex('#ff9f1c')('wtm  warn');
+const errorPrefix = chalk.bold.hex('#e71d36')('wtm  error');
 
 export function log(message) {
   console.log(`${logPrefix}  ${message}`);

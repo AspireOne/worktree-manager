@@ -43,13 +43,13 @@ for (const cmd of commands) {
   try {
     execSync(cmd, { cwd, shell, stdio: 'inherit' });
   } catch (error) {
-    process.stderr.write(\`wt: setup command failed: \${cmd}\\n\`);
+    process.stderr.write(\`wtm: setup command failed: \${cmd}\\n\`);
     process.exit(typeof error.status === 'number' ? error.status : 1);
   }
 }
 `;
   const interpolated = commands.map((raw) => interpolate(raw, vars));
-  const logPath = join(vars.target, '.wt-setup.log');
+  const logPath = join(vars.target, '.wtm-setup.log');
   const logFd = openSync(logPath, 'a');
 
   log(`Setup running in background -> ${logPath}`);
@@ -65,7 +65,7 @@ for (const cmd of commands) {
   });
 
   child.on('exit', (code) => {
-    if (code !== 0) writeSync(logFd, `\nwt: setup exited with code ${code}\n`);
+    if (code !== 0) writeSync(logFd, `\nwtm: setup exited with code ${code}\n`);
     closeSync(logFd);
   });
 

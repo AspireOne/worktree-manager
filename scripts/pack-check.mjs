@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const tempDir = mkdtempSync(join(tmpdir(), 'wtc-pack-'));
+const tempDir = mkdtempSync(join(tmpdir(), 'wtm-pack-'));
 
 try {
   execSync(`pnpm pack --pack-destination "${tempDir}"`, { stdio: 'inherit', shell: true });

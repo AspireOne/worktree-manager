@@ -7,7 +7,7 @@ const h = React.createElement;
 
 export async function runManageUI(repoRoot, theme) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error('wtc manage requires an interactive terminal.');
+    throw new Error('wtm manage requires an interactive terminal.');
   }
 
   const initialEntries = parseWorktreeList(repoRoot);

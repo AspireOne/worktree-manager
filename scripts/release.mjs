@@ -3,12 +3,12 @@ import { execSync } from 'node:child_process';
 const bump = process.argv[2] ?? 'patch';
 
 function die(message) {
-  console.error(`wt  error: ${message}`);
+  console.error(`wtm  error: ${message}`);
   process.exit(1);
 }
 
 function run(step, command) {
-  console.log(`wt  ${step}`);
+  console.log(`wtm  ${step}`);
   try {
     execSync(command, { stdio: 'inherit', shell: true });
   } catch (error) {

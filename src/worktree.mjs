@@ -203,7 +203,7 @@ export function inspectWorktree(worktreePath) {
     aheadCount: 0,
     behindCount: 0,
     lastCommit: 'No commits',
-    setupLogPresent: existsSync(join(worktreePath, '.wt-setup.log')),
+    setupLogPresent: existsSync(join(worktreePath, '.wtm-setup.log')),
   };
 
   try {

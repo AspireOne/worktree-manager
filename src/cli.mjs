@@ -22,7 +22,7 @@ function parseCLI() {
   });
 
   if (!positionals.length) {
-    die('Usage: wtc <branch> [--base <branch>] [--now|-n]\n       wtc init\n       wtc manage');
+    die('Usage: wtm <branch> [--base <branch>] [--now|-n]\n       wtm init\n       wtm manage');
   }
 
   if (positionals[0] === 'init') {

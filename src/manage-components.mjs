@@ -132,7 +132,7 @@ function DetailLine({ label, children, color, theme }) {
   return h(
     Box,
     { flexWrap: 'wrap' },
-    h(Text, { color: theme.textMuted, bold: true }, `${label}: `),
+    h(Text, { color: theme.textLabel, bold: true }, `${label}: `),
     content
   );
 }
@@ -370,13 +370,12 @@ export function ManageStatus({ isRefreshing, status, theme: themeConfig }) {
   );
 }
 
-export function ManageFooter({ selectedEntry, visibleCount, totalCount, theme: themeConfig }) {
+export function ManageFooter({ theme: themeConfig }) {
   const theme = resolveTheme(themeConfig);
-  const selectedLabel = selectedEntry?.branch ?? selectedEntry?.head?.slice(0, 12) ?? null;
 
   return h(
     Box,
-    { marginTop: 1, justifyContent: 'space-between', flexWrap: 'wrap' },
+    { marginTop: 1, flexWrap: 'wrap' },
     h(
       Box,
       { flexWrap: 'wrap' },
@@ -389,17 +388,10 @@ export function ManageFooter({ selectedEntry, visibleCount, totalCount, theme: t
       h(Text, { color: theme.textMuted }, ' refresh  '),
       h(Text, { color: theme.accent, bold: true }, 'd'),
       h(Text, { color: theme.textMuted }, ' delete  '),
+      h(Text, { color: theme.accent, bold: true }, 'D'),
+      h(Text, { color: theme.textMuted }, ' delete branch  '),
       h(Text, { color: theme.accent, bold: true }, 'q'),
       h(Text, { color: theme.textMuted }, ' quit')
-    ),
-    h(
-      Box,
-      { flexWrap: 'wrap' },
-      selectedLabel ? h(Text, { color: theme.textMuted }, 'selected ') : null,
-      selectedLabel ? h(Text, { color: theme.accentStrong, bold: true }, selectedLabel) : null,
-      selectedLabel ? h(Text, { color: theme.textMuted }, '  ') : null,
-      h(Text, { color: theme.textMuted }, 'shown '),
-      h(Text, { color: theme.accent, bold: true }, `${visibleCount}/${totalCount}`)
     )
   );
 }

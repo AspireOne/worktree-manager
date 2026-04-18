@@ -303,9 +303,6 @@ export function ManageApp({ repoRoot, initialEntries, theme }) {
     h(DeletePrompt, { confirmAction, columns, theme }),
     h(ManageStatus, { isRefreshing, status, theme }),
     h(ManageFooter, {
-      selectedEntry,
-      visibleCount: visibleEntries.length,
-      totalCount: filteredEntries.length,
       theme,
     })
   );

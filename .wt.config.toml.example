@@ -20,6 +20,7 @@ worktreeRoot = ".trees"
 # warning = "#dda35f"
 # danger = "#dc8f82"
 # textPrimary = "#f0e4d2"
+# textLabel = "#c8bba9"
 # textMuted = "#a89c8d"
 # textDim = "#746b61"
 

@@ -1,5 +1,6 @@
 export const DEFAULT_THEME = {
   textPrimary: '#f0e4d2',
+  textLabel: '#c8bba9',
   textMuted: '#a89c8d',
   textDim: '#746b61',
   accent: '#d7b36e',

@@ -1,35 +1,55 @@
 # wtm
 
-A minimal Git worktree launcher for parallel agentic coding with [Codex CLI](https://github.com/openai/codex).
+A small, standalone Git worktree manager for creating, preparing, browsing, removing, and merging isolated worktrees.
 
 ![wtm demo screenshot](demo-screenshot.png)
 
 ## Why
 
-Codex CLI has no native worktree support. Running multiple agents in the same working directory causes file conflicts and makes it hard to parallelize independent tasks.
+Git worktrees are useful whenever you need multiple independent checkouts of the same repository:
 
-The solution is one Git worktree per task - each agent gets its own isolated directory and branch to work in, with no interference between sessions. `wtm` automates the boilerplate: create the branch, create the worktree, run repo-specific setup, and optionally launch Codex right away.
+- working on several branches at once
+- testing a fix without disturbing your current checkout
+- reviewing another branch while keeping local work in place
+- running parallel automation or coding-agent sessions in isolated directories
+
+The raw `git worktree` commands are powerful, but the everyday workflow is repetitive: choose a branch, create a safe directory name, add the worktree, run repo-specific setup, remember where it lives, clean it up later, and merge it back when ready.
+
+`wtm` wraps that workflow in a focused CLI. It creates one worktree per branch under a predictable directory, runs optional setup commands, and provides an interactive terminal UI for managing active worktrees.
 
 ## Usage
 
 ```bash
-wtm feat/auth-refactor           # create worktree + run setup, print cd command
-wtm fix/login-race --now         # same, then immediately launch codex
-wtm feat/thing --base develop    # branch off develop instead of main
-wtm feat/auth-refactor           # already exists? reattaches idempotently
-wtm init                         # write .wtm.config.toml into the current directory
-wtm manage                       # interactive worktree browser, remover, and merger
+wtm feat/auth-refactor           # create a worktree, run setup, print the path
+wtm fix/login-race --base main   # branch off a specific base branch
+wtm feat/auth-refactor           # already exists? reattach idempotently
+wtm init                         # write .wtm.config.toml into the current repo
+wtm manage                       # browse, remove, inspect, and merge worktrees
 ```
 
-Worktrees are placed under `.trees/` in the repo root:
+Worktrees are placed under `.trees/` in the repo root by default:
 
-```
+```text
 your-repo/
 ├── .trees/
-│   ├── feat-auth-refactor/    ← isolated worktree, own branch
+│   ├── feat-auth-refactor/    # isolated worktree, own branch
 │   └── fix-login-race/
 └── ...
 ```
+
+Each worktree is a normal Git checkout. You can use any editor, terminal, automation, or agent inside it:
+
+```bash
+cd .trees/feat-auth-refactor
+```
+
+There is also a convenience shortcut:
+
+```bash
+wtm feat/auth-refactor --now
+```
+
+Currently `--now` launches `codex` inside the created worktree. The worktree management itself is not Codex-specific; this shortcut is just a launcher convenience for users who have that CLI installed.
 
 ## Install
 
@@ -63,12 +83,12 @@ echo ".trees/" >> .gitignore
 
 ## Config
 
-`wtm` looks for config in two places, merged in this order (higher overrides lower):
+`wtm` looks for config in two places, merged in this order. Higher entries override lower entries.
 
 | File | Scope |
 |---|---|
 | `~/.config/wtm/config.toml` | Global defaults for all repos |
-| `.wtm.config.toml` (repo root) | Per-repo config, commit this |
+| `.wtm.config.toml` in the repo root | Per-repo config, commit this |
 
 CLI flags override both.
 
@@ -94,7 +114,7 @@ setup = [
 
 `wtm init` may emit more verbose but shell-agnostic generated commands than this minimal hand-written example so the auto-detected setup keeps working if you later switch `shell`.
 
-### `init` detection
+### `init` Detection
 
 `wtm init` does not switch between multiple full templates. It always writes the same config file and only varies the generated `setup` list:
 
@@ -112,7 +132,7 @@ Current package-manager detection order:
 - `bun.lock` or `bun.lockb` -> `bun install`
 - otherwise, `package.json#packageManager`
 
-### Setup commands
+### Setup Commands
 
 Setup commands run once after the worktree is created. Three template variables are available:
 
@@ -120,21 +140,21 @@ Setup commands run once after the worktree is created. Three template variables 
 |---|---|
 | `{target}` | Absolute path to the new worktree |
 | `{root}` | Absolute path to the repo root |
-| `{branch}` | The branch name (e.g. `feat/auth-refactor`) |
+| `{branch}` | The branch name, such as `feat/auth-refactor` |
 
 If no `setup` is configured, the CLI just creates the worktree and exits.
 
-### All config keys
+### All Config Keys
 
 | Key | Default | Description |
 |---|---|---|
 | `baseBranch` | `"main"` | Branch to fork from when creating a new branch |
 | `worktreeRoot` | `".trees"` | Directory under repo root where worktrees are placed |
-| `shell` | system default | Shell used to run setup commands (`"bash"`, `"pwsh"`, etc.) |
+| `shell` | system default | Shell used to run setup commands, such as `"bash"` or `"pwsh"` |
 | `setup` | `[]` | Ordered list of shell commands to run after worktree creation |
 | `theme` | built-in palette | Optional `[theme]` table for `wtm manage` colors |
 
-### Manage UI theme
+### Manage UI Theme
 
 You can override the interactive manage UI colors from either config file:
 
@@ -159,8 +179,9 @@ These values map directly to Ink text colors. Named colors, hex colors, `rgb(...
 - **Branch exists?** Reused as-is.
 - **Worktree exists?** Reattached, setup skipped.
 - **Worktree registered but directory missing?** Stale entry pruned, worktree recreated.
+- **Setup configured?** Commands run once after a new worktree is created.
 - **`--now` / `-n`?** Launches `codex` inside the worktree after setup.
-- **No `--now`?** Prints the `cd` + `codex` command and exits.
+- **No `--now`?** Prints the worktree path and a suggested next command, then exits.
 
 ## Manage UI
 
@@ -192,7 +213,8 @@ If those checks pass, `wtm` runs `git merge --no-edit` against the checked selec
 
 ```text
 bin/wtm.js     npm-exposed executable
-src/cli.mjs    implementation
+src/cli.mjs    CLI entry point
+src/           implementation
 scripts/       release automation
 package.json   npm package metadata
 ```

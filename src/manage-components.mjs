@@ -169,7 +169,7 @@ export function FilterPanel({
         Box,
         { flexWrap: 'wrap' },
         h(Text, { color: 'gray', bold: true }, 'filter: '),
-        h(Text, { color: query ? 'white' : 'gray', bold: Boolean(query) }, query || 'Press / to filter worktrees')
+        h(Text, { color: query ? 'blue' : 'gray', bold: Boolean(query) }, query || 'Press / to filter worktrees')
       ),
     h(
       Box,
@@ -223,7 +223,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
           { flexWrap: 'wrap' },
           h(Text, { color: selectedColor, bold: isSelected }, `${isSelected ? '>' : ' '} ${branchLabel}`),
           h(Text, { color: 'gray' }, '  '),
-          h(Text, { color: isSelected ? 'white' : 'gray', bold: isSelected }, pathLabel),
+          h(Text, { color: isSelected ? 'blue' : 'gray', bold: isSelected }, pathLabel),
           tagText ? h(Text, { color: 'gray' }, '  ') : null,
           tagText ? h(Text, { color: 'gray', dimColor: true }, tagText) : null,
         ),
@@ -270,7 +270,7 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
       label: 'git status',
       color: details.data?.dirtyCount ? 'yellow' : 'green',
     }, details.loading ? 'inspecting worktree state...' : h(GitStatusSummary, { details: details.data })),
-    h(DetailLine, { label: 'relation', color: comparison.data?.sameHead ? 'green' : 'yellow' }, relationText),
+    h(DetailLine, { label: 'commits', color: comparison.data?.sameHead ? 'green' : 'yellow' }, relationText),
     (
       comparison.loading
         ? h(Spinner, { label: 'Comparing branches' })
@@ -326,15 +326,15 @@ export function ManageFooter({ selectedEntry, visibleCount, totalCount }) {
       Box,
       { flexWrap: 'wrap' },
       h(Text, { color: 'gray' }, ' '),
-      h(Text, { color: 'white', bold: true }, '↑↓'),
+      h(Text, { color: 'blue', bold: true }, '↑↓'),
       h(Text, { color: 'gray' }, ' move  '),
-      h(Text, { color: 'white', bold: true }, '/'),
+      h(Text, { color: 'blue', bold: true }, '/'),
       h(Text, { color: 'gray' }, ' filter  '),
-      h(Text, { color: 'white', bold: true }, 'r'),
+      h(Text, { color: 'blue', bold: true }, 'r'),
       h(Text, { color: 'gray' }, ' refresh  '),
-      h(Text, { color: 'white', bold: true }, 'd'),
+      h(Text, { color: 'blue', bold: true }, 'd'),
       h(Text, { color: 'gray' }, ' delete  '),
-      h(Text, { color: 'white', bold: true }, 'q'),
+      h(Text, { color: 'blue', bold: true }, 'q'),
       h(Text, { color: 'gray' }, ' quit')
     ),
     h(
@@ -344,7 +344,7 @@ export function ManageFooter({ selectedEntry, visibleCount, totalCount }) {
       selectedLabel ? h(Text, { color: 'cyan', bold: true }, selectedLabel) : null,
       selectedLabel ? h(Text, { color: 'gray' }, '  ') : null,
       h(Text, { color: 'gray' }, 'shown '),
-      h(Text, { color: 'white', bold: true }, `${visibleCount}/${totalCount}`)
+      h(Text, { color: 'blue', bold: true }, `${visibleCount}/${totalCount}`)
     )
   );
 }

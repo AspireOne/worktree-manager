@@ -2,6 +2,8 @@
 
 A minimal Git worktree launcher for parallel agentic coding with [Codex CLI](https://github.com/openai/codex).
 
+![wtm demo screenshot](demo-screenshot.png)
+
 ## Why
 
 Codex CLI has no native worktree support. Running multiple agents in the same working directory causes file conflicts and makes it hard to parallelize independent tasks.
@@ -16,7 +18,7 @@ wtm fix/login-race --now         # same, then immediately launch codex
 wtm feat/thing --base develop    # branch off develop instead of main
 wtm feat/auth-refactor           # already exists? reattaches idempotently
 wtm init                         # write .wtm.config.toml into the current directory
-wtm manage                       # interactive worktree browser / remover
+wtm manage                       # interactive worktree browser, remover, and merger
 ```
 
 Worktrees are placed under `.trees/` in the repo root:
@@ -31,7 +33,7 @@ your-repo/
 
 ## Install
 
-Requires Node 18+.
+Requires Node 18+ and Git. The `wtm manage` merge action requires a Git version with `git merge-tree --write-tree` support.
 
 For local development from this repo:
 
@@ -47,7 +49,7 @@ pnpm wtm -- manage
 node ./bin/wtm.js manage
 ```
 
-That exposes the `wtm` binary globally from your checked-out repo. If you later publish this package, installation becomes the usual:
+To expose the `wtm` binary globally from your checked-out repo, use `pnpm link --global`. If you later publish this package, installation becomes the usual:
 
 ```bash
 pnpm add -g @aspireone/wtm
@@ -169,10 +171,22 @@ Run `wtm manage` to open an interactive worktree navigator in the terminal.
 - refresh the inventory with `r`
 - delete the selected worktree with `d`
 - delete the selected worktree and its local branch with `D`
-- merge the selected worktree into the current checkout with `M` when the current checkout is clean and the static merge check reports no conflicts
+- merge the selected worktree into the current checkout with `M`
 - quit with `q`
 
 The main checkout is visible for context but cannot be removed from this screen.
+The details pane compares each selected worktree against the current checkout and reports commit distance, changed files, and whether Git's static merge check sees conflicts.
+
+`M` is intentionally guarded. It only merges when:
+
+- the current checkout and selected worktree are both on local branches
+- the selected branch has commits that are not already in the current checkout
+- the current checkout is clean
+- no merge, rebase, cherry-pick, revert, or bisect operation is in progress
+- the static merge check reports no conflicts
+- both branch tips are unchanged between the static check and the merge
+
+If those checks pass, `wtm` runs `git merge --no-edit` against the checked selected commit. If the selected branch has nothing new to merge, the UI reports that and leaves the repository unchanged.
 
 ## Package Layout
 

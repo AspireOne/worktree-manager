@@ -1,6 +1,12 @@
-import React, { startTransition, useDeferredValue, useEffect, useState } from 'react';
+import React, { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react';
 import { Box, useApp, useInput, useWindowSize } from 'ink';
-import { inspectWorktree, parseWorktreeList, removeWorktree } from './worktree.mjs';
+import {
+  compareWorktreeRefs,
+  getCurrentCheckoutContext,
+  inspectWorktree,
+  parseWorktreeList,
+  removeWorktree,
+} from './worktree.mjs';
 import {
   DeletePrompt,
   DetailsPane,
@@ -39,14 +45,26 @@ export function ManageApp({ repoRoot, initialEntries }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [details, setDetails] = useState({ loading: false, data: null });
+  const [comparison, setComparison] = useState({ loading: false, data: null });
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [currentCheckout, setCurrentCheckout] = useState(() => getCurrentCheckoutContext(repoRoot));
+  const detailCacheRef = useRef(new Map());
+  const comparisonCacheRef = useRef(new Map());
 
   const deferredQuery = useDeferredValue(query);
   const filteredEntries = searchEntries(entries, deferredQuery);
   const selectedEntry = filteredEntries.find((entry) => entry.path === selectedPath) ?? filteredEntries[0] ?? null;
   const selectedIndex = selectedEntry ? filteredEntries.findIndex((entry) => entry.path === selectedEntry.path) : -1;
+  const currentEntry = entries.find((entry) => entry.isMain) ?? null;
   const staleCount = entries.filter((entry) => entry.prunable).length;
   const mainCount = entries.filter((entry) => entry.isMain).length;
   const wideLayout = columns >= 110;
+  const detailKey = selectedEntry
+    ? `${refreshTick}:${selectedEntry.path}:${selectedEntry.head ?? selectedEntry.branch ?? ''}`
+    : null;
+  const comparisonKey = currentEntry && selectedEntry
+    ? `${refreshTick}:${currentEntry.path}:${currentEntry.head ?? currentEntry.branch ?? ''}:${selectedEntry.path}:${selectedEntry.head ?? selectedEntry.branch ?? ''}`
+    : null;
 
   useEffect(() => {
     if (selectedEntry && selectedEntry.path !== selectedPath) {
@@ -65,25 +83,63 @@ export function ManageApp({ repoRoot, initialEntries }) {
       return;
     }
 
+    const cached = detailCacheRef.current.get(detailKey);
+    if (cached) {
+      setDetails({ loading: false, data: cached });
+      return;
+    }
+
     let active = true;
     setDetails({ loading: true, data: null });
-
-    Promise.resolve().then(() => {
+    const timer = setTimeout(() => {
       const data = inspectWorktree(selectedEntry.path);
+      detailCacheRef.current.set(detailKey, data);
       if (active) setDetails({ loading: false, data });
-    });
+    }, 120);
 
     return () => {
       active = false;
+      clearTimeout(timer);
     };
-  }, [selectedEntry?.path]);
+  }, [detailKey, selectedEntry]);
 
-  const refresh = () => {
+  useEffect(() => {
+    if (!currentEntry || !selectedEntry) {
+      setComparison({ loading: false, data: null });
+      return;
+    }
+
+    const cached = comparisonCacheRef.current.get(comparisonKey);
+    if (cached) {
+      setComparison({ loading: false, data: cached });
+      return;
+    }
+
+    let active = true;
+    setComparison({ loading: true, data: null });
+    const timer = setTimeout(async () => {
+      const data = await compareWorktreeRefs(repoRoot, currentEntry, selectedEntry);
+      if (!active) return;
+      comparisonCacheRef.current.set(comparisonKey, data);
+      setComparison({ loading: false, data });
+    }, 120);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [comparisonKey, currentEntry, repoRoot, selectedEntry]);
+
+  const refresh = (nextStatus = { variant: 'success', text: 'Worktree list refreshed.' }) => {
     setIsRefreshing(true);
     Promise.resolve().then(() => {
+      detailCacheRef.current.clear();
+      comparisonCacheRef.current.clear();
       setEntries(parseWorktreeList(repoRoot));
+      setCurrentCheckout(getCurrentCheckoutContext(repoRoot));
+      setRefreshTick((value) => value + 1);
       setIsRefreshing(false);
-      setStatus({ variant: 'success', text: 'Worktree list refreshed.' });
+      setStatus(nextStatus);
     });
   };
 
@@ -123,7 +179,10 @@ export function ManageApp({ repoRoot, initialEntries }) {
       variant: message.startsWith('Removed') || message.startsWith('Pruned') ? 'success' : 'warning',
       text: message,
     });
-    refresh();
+    refresh({
+      variant: message.startsWith('Removed') || message.startsWith('Pruned') ? 'success' : 'warning',
+      text: message,
+    });
   };
 
   useInput((input, key) => {
@@ -242,8 +301,10 @@ export function ManageApp({ repoRoot, initialEntries }) {
             Section,
             { title: 'Details', borderColor: selectedEntry ? 'cyan' : 'gray' },
             h(DetailsPane, {
+              currentCheckout,
               selectedEntry,
               details,
+              comparison,
               columns,
             })
           )

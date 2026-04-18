@@ -1,10 +1,14 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { execaSync } from 'execa';
+import { execa, execaSync } from 'execa';
 import { die, log, warn } from './log.mjs';
 
 function runGit(args, options = {}) {
   return execaSync('git', args, options);
+}
+
+async function runGitAsync(args, options = {}) {
+  return execa('git', args, options);
 }
 
 function git(args, cwd, stdio = 'inherit') {
@@ -81,6 +85,59 @@ function parseWorktreeBlock(block, repoRoot) {
 
   entry.isMain = entry.path === resolve(repoRoot);
   return entry;
+}
+
+function safeGitCapture(args, cwd) {
+  try {
+    return runGit(args, { cwd, encoding: 'utf8' }).stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+async function safeGitCaptureAsync(args, cwd) {
+  try {
+    return (await runGitAsync(args, { cwd, encoding: 'utf8' })).stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+function countOutputLines(output) {
+  if (!output) return 0;
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+}
+
+function resolveComparisonRef(entry) {
+  if (!entry) return null;
+  if (entry.branch) return entry.branch;
+  if (entry.head) return entry.head;
+  return null;
+}
+
+function classifyMergeability(mergeBase, mergeCheck) {
+  if (!mergeBase) return 'unknown';
+  if (mergeCheck.ok) return 'clean';
+  if (!mergeCheck.error) return 'unknown';
+  if (/unknown option|usage:|unrelated histories|no merge base|not something we can merge/i.test(mergeCheck.error)) {
+    return 'unknown';
+  }
+  return 'conflicts';
+}
+
+async function tryGitAsync(args, cwd) {
+  try {
+    await runGitAsync(args, { cwd, stdio: 'pipe' });
+    return { ok: true, error: null };
+  } catch (error) {
+    const stderr = error.stderr?.toString?.().trim() ?? '';
+    const stdout = error.stdout?.toString?.().trim() ?? '';
+    const message = stderr || stdout || `git ${args[0]} failed.`;
+    return { ok: false, error: message };
+  }
 }
 
 export function getRepoRoot() {
@@ -176,6 +233,56 @@ export function inspectWorktree(worktreePath) {
   }
 
   return details;
+}
+
+export function getCurrentCheckoutContext(repoRoot) {
+  const branch = safeGitCapture(['symbolic-ref', '--quiet', '--short', 'HEAD'], repoRoot);
+  const head = safeGitCapture(['rev-parse', '--verify', 'HEAD'], repoRoot);
+
+  return {
+    branch,
+    head,
+    label: branch ?? (head ? `detached @ ${head.slice(0, 12)}` : 'unknown checkout'),
+  };
+}
+
+export async function compareWorktreeRefs(repoRoot, currentEntry, selectedEntry) {
+  if (!currentEntry || !selectedEntry) return null;
+
+  const currentRef = resolveComparisonRef(currentEntry);
+  const selectedRef = resolveComparisonRef(selectedEntry);
+  if (!currentRef || !selectedRef) return null;
+
+  const [currentOid, selectedOid] = await Promise.all([
+    safeGitCaptureAsync(['rev-parse', '--verify', currentRef], repoRoot),
+    safeGitCaptureAsync(['rev-parse', '--verify', selectedRef], repoRoot),
+  ]);
+  if (!currentOid || !selectedOid) return null;
+
+  const [mergeBase, aheadBehind, diffOutput, mergeCheck] = await Promise.all([
+    safeGitCaptureAsync(['merge-base', currentRef, selectedRef], repoRoot),
+    safeGitCaptureAsync(['rev-list', '--left-right', '--count', `${currentRef}...${selectedRef}`], repoRoot),
+    safeGitCaptureAsync(['diff', '--name-only', currentRef, selectedRef], repoRoot),
+    tryGitAsync(['merge-tree', '--write-tree', '--quiet', currentRef, selectedRef], repoRoot),
+  ]);
+  const [currentAheadRaw, selectedAheadRaw] = aheadBehind?.split(/\s+/) ?? [];
+  const currentAhead = Number(currentAheadRaw ?? 0);
+  const selectedAhead = Number(selectedAheadRaw ?? 0);
+
+  const tipDiffFiles = countOutputLines(diffOutput);
+
+  return {
+    currentRef,
+    selectedRef,
+    currentOid,
+    selectedOid,
+    mergeBase,
+    currentAhead: Number.isNaN(currentAhead) ? 0 : currentAhead,
+    selectedAhead: Number.isNaN(selectedAhead) ? 0 : selectedAhead,
+    tipDiffFiles,
+    mergeable: classifyMergeability(mergeBase, mergeCheck),
+    sameHead: currentOid === selectedOid,
+  };
 }
 
 export function removeWorktree(entry, repoRoot, removeBranch = false) {

@@ -64,6 +64,18 @@ export function DetailRow({ label, value, color = 'white' }) {
   );
 }
 
+function mergeableColor(mergeable) {
+  if (mergeable === 'clean') return 'green';
+  if (mergeable === 'conflicts') return 'red';
+  return 'gray';
+}
+
+function mergeableLabel(mergeable) {
+  if (mergeable === 'clean') return 'merge check clean';
+  if (mergeable === 'conflicts') return 'merge check conflicts';
+  return 'merge check unknown';
+}
+
 export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount }) {
   return h(
     Box,
@@ -166,12 +178,20 @@ export function WorktreeList({ entries, selectedEntry, columns, query }) {
   );
 }
 
-export function DetailsPane({ selectedEntry, details, columns }) {
+export function DetailsPane({ currentCheckout, selectedEntry, details, comparison, columns }) {
   if (!selectedEntry) {
     return h(Alert, { variant: 'info', title: 'No worktree selected' }, 'Adjust the filter or refresh the list.');
   }
 
   const selectedPathText = cliTruncate(selectedEntry.path, Math.max(24, columns - 70));
+  const highlightedLabel = selectedEntry.branch ?? `${selectedEntry.head?.slice(0, 12) ?? 'unknown'}`;
+  const relationText = comparison.loading
+    ? 'Comparing current checkout to highlighted branch...'
+    : comparison.data
+      ? comparison.data.sameHead
+        ? 'Current checkout and highlighted worktree point to the same commit.'
+        : `Highlighted is ${comparison.data.selectedAhead} ahead and ${comparison.data.currentAhead} behind current.`
+      : 'Comparison unavailable for this selection.';
 
   return h(
     Box,
@@ -184,6 +204,31 @@ export function DetailsPane({ selectedEntry, details, columns }) {
       value: details.loading ? 'Inspecting worktree state...' : (details.data?.branchSummary ?? 'Unavailable'),
       color: details.data?.dirtyCount ? 'yellow' : 'green',
     }),
+    h(DetailRow, {
+      label: 'Compare',
+      value: `${currentCheckout.label} -> ${highlightedLabel}`,
+      color: 'magenta',
+    }),
+    h(DetailRow, {
+      label: 'Relation',
+      value: relationText,
+      color: comparison.data?.sameHead ? 'green' : 'yellow',
+    }),
+    comparison.loading
+      ? h(Spinner, { label: 'Comparing branches' })
+      : comparison.data
+        ? h(
+          Box,
+          { columnGap: 1, flexWrap: 'wrap', marginBottom: 1 },
+          h(Badge, { color: comparison.data.selectedAhead > 0 ? 'yellow' : 'gray' }, `highlighted +${comparison.data.selectedAhead}`),
+          h(Badge, { color: comparison.data.currentAhead > 0 ? 'yellow' : 'gray' }, `current +${comparison.data.currentAhead}`),
+          h(Badge, { color: statColor(comparison.data.tipDiffFiles) }, `${comparison.data.tipDiffFiles} files differ`),
+          h(Badge, { color: mergeableColor(comparison.data.mergeable) }, mergeableLabel(comparison.data.mergeable)),
+          comparison.data.mergeBase
+            ? h(Badge, { color: 'blue' }, `base ${comparison.data.mergeBase.slice(0, 8)}`)
+            : h(Badge, { color: 'gray' }, 'no merge base')
+        )
+        : null,
     details.loading
       ? h(Spinner, { label: 'Collecting git metadata' })
       : h(

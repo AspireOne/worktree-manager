@@ -1,5 +1,5 @@
-import React from 'react';
 import { render } from 'ink';
+import React from 'react';
 import { ManageApp } from './manage-app.mjs';
 import { parseWorktreeList } from './worktree.mjs';
 

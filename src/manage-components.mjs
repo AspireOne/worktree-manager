@@ -76,6 +76,71 @@ function mergeableLabel(mergeable) {
   return 'merge check unknown';
 }
 
+function GitStatusSummary({ details }) {
+  if (!details) {
+    return h(Text, { color: 'gray' }, 'Status unavailable');
+  }
+
+  const parts = [];
+  const pushPart = (key, color, text) => {
+    if (parts.length > 0) parts.push(h(Text, { key: `${key}-gap`, color: 'gray' }, ' '));
+    parts.push(h(Text, { key, color }, text));
+  };
+
+  if ((details.stagedCount ?? 0) > 0) {
+    pushPart('staged', statColor(details.stagedCount ?? 0), `+${details.stagedCount}`);
+  }
+
+  if ((details.unstagedCount ?? 0) > 0) {
+    pushPart('unstaged', statColor(details.unstagedCount ?? 0), `~${details.unstagedCount}`);
+  }
+
+  if ((details.untrackedCount ?? 0) > 0) {
+    pushPart('untracked', statColor(details.untrackedCount ?? 0), `?${details.untrackedCount}`);
+  }
+
+  if ((details.aheadCount ?? 0) > 0) {
+    pushPart('ahead', statColor(details.aheadCount ?? 0), `⇡${details.aheadCount}`);
+  }
+
+  if ((details.behindCount ?? 0) > 0) {
+    pushPart('behind', statColor(details.behindCount ?? 0), `⇣${details.behindCount}`);
+  }
+
+  if (parts.length === 0) {
+    pushPart('clean', 'green', 'clean');
+  }
+
+  return h(Box, { flexWrap: 'wrap' }, ...parts);
+}
+
+function BulletLine({ color = 'gray', children }) {
+  const content = typeof children === 'string'
+    ? h(Text, { color, wrap: 'wrap' }, children)
+    : children;
+
+  return h(
+    Box,
+    { marginBottom: 1, flexWrap: 'wrap' },
+    h(Text, { color: 'gray' }, '• '),
+    content
+  );
+}
+
+function ComparisonSummary({ comparison }) {
+  if (!comparison) {
+    return h(Text, { color: 'gray' }, 'Comparison unavailable');
+  }
+
+  return h(
+    Box,
+    { flexWrap: 'wrap' },
+    h(Text, { color: statColor(comparison.tipDiffFiles) }, `${comparison.tipDiffFiles} files differ`),
+    h(Text, { color: 'gray' }, '  '),
+    h(Text, { color: mergeableColor(comparison.mergeable) }, mergeableLabel(comparison.mergeable))
+  );
+}
+
 export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount }) {
   return h(
     Box,
@@ -189,8 +254,8 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
     ? 'Comparing current checkout to highlighted branch...'
     : comparison.data
       ? comparison.data.sameHead
-        ? 'Current checkout and highlighted worktree point to the same commit.'
-        : `Highlighted is ${comparison.data.selectedAhead} ahead and ${comparison.data.currentAhead} behind current.`
+        ? 'same commit as current'
+        : `${comparison.data.selectedAhead} ahead, ${comparison.data.currentAhead} behind`
       : 'Comparison unavailable for this selection.';
 
   return h(
@@ -209,37 +274,24 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
       value: `${currentCheckout.label} -> ${highlightedLabel}`,
       color: 'magenta',
     }),
-    h(DetailRow, {
-      label: 'Relation',
-      value: relationText,
-      color: comparison.data?.sameHead ? 'green' : 'yellow',
-    }),
     comparison.loading
       ? h(Spinner, { label: 'Comparing branches' })
       : comparison.data
         ? h(
           Box,
-          { columnGap: 1, flexWrap: 'wrap', marginBottom: 1 },
-          h(Badge, { color: comparison.data.selectedAhead > 0 ? 'yellow' : 'gray' }, `highlighted +${comparison.data.selectedAhead}`),
-          h(Badge, { color: comparison.data.currentAhead > 0 ? 'yellow' : 'gray' }, `current +${comparison.data.currentAhead}`),
-          h(Badge, { color: statColor(comparison.data.tipDiffFiles) }, `${comparison.data.tipDiffFiles} files differ`),
-          h(Badge, { color: mergeableColor(comparison.data.mergeable) }, mergeableLabel(comparison.data.mergeable)),
-          comparison.data.mergeBase
-            ? h(Badge, { color: 'blue' }, `base ${comparison.data.mergeBase.slice(0, 8)}`)
-            : h(Badge, { color: 'gray' }, 'no merge base')
+          { flexDirection: 'column' },
+          h(BulletLine, { color: comparison.data.sameHead ? 'green' : 'yellow' }, relationText),
+          details.loading
+            ? h(Spinner, { label: 'Collecting git metadata' })
+            : h(BulletLine, null, h(GitStatusSummary, { details: details.data })),
+          h(BulletLine, null, h(ComparisonSummary, { comparison: comparison.data }))
         )
         : null,
-    details.loading
-      ? h(Spinner, { label: 'Collecting git metadata' })
-      : h(
-        Box,
-        { columnGap: 1, flexWrap: 'wrap', marginBottom: 1 },
-        h(Badge, { color: statColor(details.data?.dirtyCount ?? 0) }, `${details.data?.dirtyCount ?? 0} dirty`),
-        h(Badge, { color: statColor(details.data?.stagedCount ?? 0) }, `${details.data?.stagedCount ?? 0} staged`),
-        h(Badge, { color: statColor(details.data?.unstagedCount ?? 0) }, `${details.data?.unstagedCount ?? 0} unstaged`),
-        h(Badge, { color: statColor(details.data?.untrackedCount ?? 0) }, `${details.data?.untrackedCount ?? 0} untracked`),
-        h(Badge, { color: details.data?.setupLogPresent ? 'magenta' : 'gray' }, details.data?.setupLogPresent ? 'setup log' : 'no setup log')
-      ),
+    !comparison.loading && !comparison.data && (
+      details.loading
+        ? h(Spinner, { label: 'Collecting git metadata' })
+        : h(BulletLine, null, h(GitStatusSummary, { details: details.data }))
+    ),
     h(EntryBadges, { entry: selectedEntry })
   );
 }

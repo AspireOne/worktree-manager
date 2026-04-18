@@ -200,6 +200,8 @@ export function inspectWorktree(worktreePath) {
     stagedCount: 0,
     unstagedCount: 0,
     untrackedCount: 0,
+    aheadCount: 0,
+    behindCount: 0,
     lastCommit: 'No commits',
     setupLogPresent: existsSync(join(worktreePath, '.wt-setup.log')),
   };
@@ -210,6 +212,10 @@ export function inspectWorktree(worktreePath) {
 
     if (lines.length > 0) {
       details.branchSummary = lines[0].replace(/^##\s*/, '');
+      const aheadMatch = details.branchSummary.match(/\bahead (\d+)/);
+      const behindMatch = details.branchSummary.match(/\bbehind (\d+)/);
+      details.aheadCount = aheadMatch ? Number.parseInt(aheadMatch[1], 10) : 0;
+      details.behindCount = behindMatch ? Number.parseInt(behindMatch[1], 10) : 0;
     }
 
     for (const line of lines.slice(1)) {

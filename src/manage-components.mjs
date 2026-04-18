@@ -1,4 +1,6 @@
 import React from 'react';
+import { homedir } from 'node:os';
+import { sep } from 'node:path';
 import { Box, Text } from 'ink';
 import { Alert, Spinner, StatusMessage, TextInput } from '@inkjs/ui';
 import cliTruncate from 'cli-truncate';
@@ -35,9 +37,9 @@ function mergeableColor(mergeable) {
 }
 
 function mergeableLabel(mergeable) {
-  if (mergeable === 'clean') return 'merge clean';
-  if (mergeable === 'conflicts') return 'merge conflicts';
-  return 'merge unknown';
+  if (mergeable === 'clean') return 'no conflicts';
+  if (mergeable === 'conflicts') return 'conflicts';
+  return 'unknown';
 }
 
 function GitStatusSummary({ details }) {
@@ -73,7 +75,7 @@ function InlineTagList({ entry }) {
     { flexWrap: 'wrap' },
     ...items.flatMap((item, index) => [
       index > 0 ? h(Text, { key: `${item}-sep`, color: 'gray' }, ' ') : null,
-      h(Text, { key: item, color: getEntryTagColor(entry) }, item),
+      h(Text, { key: item, color: getEntryTagColor(entry), dimColor: true }, `[${item}]`),
     ].filter(Boolean))
   );
 }
@@ -89,6 +91,26 @@ function DetailLine({ label, children, color = 'white' }) {
     h(Text, { color: 'gray' }, `${label}: `),
     content
   );
+}
+
+function stripCommitHash(lastCommit) {
+  if (!lastCommit) return 'unavailable';
+  return lastCommit.replace(/^[0-9a-f]{7,40}\s+/i, '') || lastCommit;
+}
+
+function displayPath(worktreePath) {
+  const home = homedir();
+  const isWindows = sep === '\\';
+  const pathValue = worktreePath ?? '';
+  const homeMatch = isWindows
+    ? pathValue.toLowerCase().startsWith(home.toLowerCase())
+    : pathValue.startsWith(home);
+
+  if (!homeMatch) return pathValue;
+
+  const suffix = pathValue.slice(home.length);
+  if (!suffix) return '~';
+  return `~${suffix}`;
 }
 
 export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount, columns }) {
@@ -113,7 +135,7 @@ export function FilterPanel({
   query,
   searchMode,
   filteredCount,
-  selectedEntry,
+  currentCheckout,
   setQuery,
   setSearchMode,
   setStatus,
@@ -121,30 +143,35 @@ export function FilterPanel({
   return h(
     Box,
     { flexDirection: 'column', marginBottom: 1 },
+    searchMode
+      ? h(
+        Box,
+        { flexWrap: 'wrap' },
+        h(Text, { color: 'cyan' }, 'filter> '),
+        h(TextInput, {
+          placeholder: 'branch, path, or HEAD',
+          defaultValue: query,
+          onChange: setQuery,
+          onSubmit: () => {
+            setSearchMode(false);
+            setStatus({
+              variant: 'success',
+              text: query ? `Showing ${filteredCount} matching worktrees.` : 'Search cleared.',
+            });
+          },
+        })
+      )
+      : h(
+        Box,
+        { flexWrap: 'wrap' },
+        h(Text, { color: 'gray' }, 'filter: '),
+        h(Text, { color: query ? 'white' : 'gray' }, query || 'Press / to filter worktrees')
+      ),
     h(
       Box,
       { flexWrap: 'wrap' },
-      h(Text, { color: searchMode ? 'cyan' : 'gray' }, searchMode ? 'filter>' : 'filter:'),
-      h(Text, { color: 'gray' }, ' '),
-      h(TextInput, {
-        placeholder: 'Press / to filter worktrees',
-        defaultValue: query,
-        onChange: setQuery,
-        onSubmit: () => {
-          setSearchMode(false);
-          setStatus({
-            variant: 'success',
-            text: query ? `Showing ${filteredCount} matching worktrees.` : 'Search cleared.',
-          });
-        },
-        isDisabled: !searchMode,
-      })
-    ),
-    h(
-      Box,
-      { flexWrap: 'wrap' },
-      h(Text, { color: 'gray' }, 'selected: '),
-      h(Text, { color: selectedEntry ? 'white' : 'gray', bold: Boolean(selectedEntry) }, selectedEntry?.branch ?? 'none')
+      h(Text, { color: 'gray' }, 'comparing: '),
+      h(Text, { color: 'magenta' }, currentCheckout.label)
     )
   );
 }
@@ -159,7 +186,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
   }
 
   const showWindowMeta = totalCount > entries.length;
-  const branchWidth = Math.max(12, columns - 30);
+  const branchWidth = Math.max(12, columns - 34);
   const pathWidth = Math.max(18, columns - 6);
 
   return h(
@@ -175,9 +202,10 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
     ...entries.map((entry, index) => {
       const isSelected = selectedEntry?.path === entry.path;
       const branchLabel = cliTruncate(entry.branch ?? '(no branch)', branchWidth);
-      const pathLabel = cliTruncate(entry.path, pathWidth);
+      const pathLabel = cliTruncate(displayPath(entry.path), pathWidth);
       const tagItems = getEntryTags(entry);
-      const statusColor = entry.isMain ? 'green' : (isSelected ? 'cyan' : 'white');
+      const selectedColor = isSelected ? 'cyan' : (entry.isMain ? 'green' : 'white');
+      const tagText = tagItems.map((item) => `[${item}]`).join(' ');
 
       return h(
         Box,
@@ -189,12 +217,9 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
         h(
           Box,
           { flexWrap: 'wrap' },
-          h(Text, { color: statusColor, bold: isSelected }, `${isSelected ? '>' : ' '} ${branchLabel}`),
-          tagItems.length > 0 ? h(Text, { color: 'gray' }, '  ') : null,
-          ...tagItems.flatMap((item, tagIndex) => [
-            tagIndex > 0 ? h(Text, { key: `${entry.path}-${item}-sep`, color: 'gray' }, ' ') : null,
-            h(Text, { key: `${entry.path}-${item}`, color: getEntryTagColor(entry) }, item),
-          ].filter(Boolean))
+          h(Text, { color: selectedColor, bold: isSelected }, `${isSelected ? '>' : ' '} ${branchLabel}`),
+          tagText ? h(Text, { color: 'gray' }, '  ') : null,
+          tagText ? h(Text, { color: 'gray', dimColor: true }, tagText) : null,
         ),
         h(Text, { color: 'gray' }, `  ${pathLabel}`),
       );
@@ -207,16 +232,14 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
     return h(Text, { color: 'gray' }, 'No worktree selected.');
   }
 
-  const selectedPathText = cliTruncate(selectedEntry.path, Math.max(18, columns - 10));
   const highlightedLabel = selectedEntry.branch ?? `${selectedEntry.head?.slice(0, 12) ?? 'unknown'}`;
   const relationText = comparison.loading
     ? 'comparing...'
     : comparison.data
       ? comparison.data.sameHead
-        ? 'same commit as current'
-        : `${comparison.data.selectedAhead} ahead, ${comparison.data.currentAhead} behind current`
+        ? `same commit as ${currentCheckout.label}`
+        : `${comparison.data.selectedAhead} ahead, ${comparison.data.currentAhead} behind ${currentCheckout.label}`
       : 'comparison unavailable';
-  const compareText = `${currentCheckout.label} -> ${highlightedLabel}`;
   const diffText = comparison.loading
     ? null
     : comparison.data
@@ -225,35 +248,35 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
   const mergeText = comparison.loading
     ? null
     : comparison.data
-      ? mergeableLabel(comparison.data.mergeable)
+      ? comparison.data.mergeable === 'clean'
+        ? `no conflicts, can merge into ${currentCheckout.label}`
+        : mergeableLabel(comparison.data.mergeable)
       : null;
+  const tagItems = getEntryTags(selectedEntry);
 
   return h(
     Box,
     { flexDirection: 'column', marginBottom: 1 },
-    h(Text, { color: 'cyan', bold: true }, 'details'),
-    h(DetailLine, { label: 'branch', color: 'cyan' }, selectedEntry.branch ?? '(no branch)'),
-    h(DetailLine, { label: 'path', color: 'gray' }, selectedPathText),
-    h(DetailLine, { label: 'commit' }, details.loading ? 'loading...' : (details.data?.lastCommit ?? 'unavailable')),
+    h(DetailLine, { label: 'commit' }, details.loading ? 'loading...' : stripCommitHash(details.data?.lastCommit)),
     h(DetailLine, {
-      label: 'status',
+      label: 'git status',
       color: details.data?.dirtyCount ? 'yellow' : 'green',
-    }, details.loading ? 'inspecting worktree state...' : (details.data?.branchSummary ?? 'unavailable')),
-    h(DetailLine, { label: 'compare', color: 'magenta' }, compareText),
+    }, details.loading ? 'inspecting worktree state...' : h(GitStatusSummary, { details: details.data })),
     h(DetailLine, { label: 'relation', color: comparison.data?.sameHead ? 'green' : 'yellow' }, relationText),
-    comparison.loading
-      ? h(Spinner, { label: 'Comparing branches' })
-      : h(
-        Box,
-        { flexWrap: 'wrap' },
-        diffText ? h(DetailLine, { label: 'diff', color: statColor(comparison.data?.tipDiffFiles ?? 0) }, diffText) : null,
-        mergeText ? h(Text, { color: 'gray' }, '  ') : null,
-        mergeText ? h(DetailLine, { label: 'merge', color: mergeableColor(comparison.data?.mergeable) }, mergeText) : null,
-      ),
+    (
+      comparison.loading
+        ? h(Spinner, { label: 'Comparing branches' })
+        : h(
+          Box,
+          { flexDirection: 'column' },
+          diffText ? h(DetailLine, { label: 'diff', color: statColor(comparison.data?.tipDiffFiles ?? 0) }, diffText) : null,
+          mergeText ? h(DetailLine, { label: 'merge', color: mergeableColor(comparison.data?.mergeable) }, mergeText) : null,
+        )
+    ),
     details.loading
       ? h(Spinner, { label: 'Collecting git metadata' })
-      : h(DetailLine, { label: 'git' }, h(GitStatusSummary, { details: details.data })),
-    h(DetailLine, { label: 'tags' }, h(InlineTagList, { entry: selectedEntry }))
+      : null,
+    tagItems.length > 0 ? h(DetailLine, { label: 'tags' }, h(InlineTagList, { entry: selectedEntry })) : null
   );
 }
 
@@ -287,7 +310,7 @@ export function ManageFooter({ selectedEntry, visibleCount, totalCount }) {
   return h(
     Box,
     { marginTop: 1, justifyContent: 'space-between', flexWrap: 'wrap' },
-    h(Text, { color: 'gray' }, '↑ ↓ move  / filter  r refresh  d delete  D delete+branch  q quit'),
-    h(Text, { color: 'gray' }, `${visibleCount}/${totalCount} shown${selectedEntry ? `  ${selectedEntry.branch ?? selectedEntry.path}` : ''}`)
+    h(Text, { color: 'gray' }, '↑↓ move  / filter  r refresh  d delete  q quit'),
+    h(Text, { color: 'gray' }, `${visibleCount}/${totalCount} shown${selectedEntry ? `  ${selectedEntry.branch ?? displayPath(selectedEntry.path)}` : ''}`)
   );
 }

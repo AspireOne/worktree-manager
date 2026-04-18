@@ -266,7 +266,7 @@ export function ManageApp({ repoRoot, initialEntries }) {
 
   return h(
     Box,
-    { flexDirection: 'column', paddingX: 1, paddingY: 1 },
+    { flexDirection: 'column', paddingX: 1, paddingTop: 1, paddingBottom: 1 },
     h(ManageHeader, {
       repoRoot,
       entryCount: entries.length,
@@ -278,7 +278,7 @@ export function ManageApp({ repoRoot, initialEntries }) {
       query,
       searchMode,
       filteredCount: filteredEntries.length,
-      selectedEntry,
+      currentCheckout,
       setQuery: (value) => startTransition(() => setQuery(value)),
       setSearchMode,
       setStatus,

@@ -261,6 +261,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
       const pathLabel = cliTruncate(displayPathPortable(entry.path), pathWidth);
       const tagItems = getEntryTags(entry);
       const selectedColor = isSelected ? theme.accentStrong : (entry.isMain ? theme.success : theme.textPrimary);
+      const isCurrentCheckout = entry.isMain;
       const tagText = tagItems.map((item) => `[${item}]`).join(' ');
 
       return h(
@@ -273,9 +274,9 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
         h(
           Box,
           { flexWrap: 'wrap' },
-          h(Text, { color: selectedColor, bold: isSelected }, `${isSelected ? '>' : ' '} ${branchLabel}`),
+          h(Text, { color: selectedColor, bold: isCurrentCheckout }, `${isSelected ? '>' : ' '} ${branchLabel}`),
           h(Text, { color: theme.textMuted }, '  '),
-          h(Text, { color: isSelected ? theme.accent : theme.textMuted, bold: isSelected }, pathLabel),
+          h(Text, { color: isSelected ? theme.accent : theme.textMuted, bold: isCurrentCheckout }, pathLabel),
           tagText ? h(Text, { color: theme.textMuted }, '  ') : null,
           tagText ? h(Text, { color: theme.textMuted, dimColor: true }, tagText) : null,
         ),
@@ -344,16 +345,36 @@ export function DeletePrompt({ confirmAction, columns, theme: themeConfig }) {
   const theme = resolveTheme(themeConfig);
   if (!confirmAction) return null;
 
+  const promptColor = confirmAction.removeBranch ? theme.danger : theme.warning;
   const label = confirmAction.removeBranch ? 'delete worktree + branch?' : 'delete worktree?';
-  const message = confirmAction.removeBranch
-    ? `y: remove ${confirmAction.entry.path} and delete ${confirmAction.entry.branch}  any other key: cancel`
-    : `y: remove ${confirmAction.entry.path}  any other key: cancel`;
+  const pathLabel = cliTruncate(displayPathPortable(confirmAction.entry.path), Math.max(24, columns - 8));
 
   return h(
     Box,
-    { marginTop: 1 },
-    h(Text, { color: confirmAction.removeBranch ? theme.danger : theme.warning, bold: true }, label),
-    h(Text, { color: theme.textMuted }, ` ${cliTruncate(message, Math.max(24, columns - 2))}`)
+    { flexDirection: 'column', marginTop: 1 },
+    h(Text, { color: promptColor, bold: true }, label),
+    h(
+      Box,
+      { flexWrap: 'wrap' },
+      h(Text, { color: theme.textLabel, bold: true }, 'path: '),
+      h(Text, { color: theme.textPrimary }, pathLabel)
+    ),
+    confirmAction.removeBranch
+      ? h(
+        Box,
+        { flexWrap: 'wrap' },
+        h(Text, { color: theme.textLabel, bold: true }, 'branch: '),
+        h(Text, { color: theme.textPrimary }, confirmAction.entry.branch)
+      )
+      : null,
+    h(
+      Box,
+      { flexWrap: 'wrap' },
+      h(Text, { color: promptColor, bold: true }, 'y'),
+      h(Text, { color: theme.textMuted }, ' confirm  '),
+      h(Text, { color: promptColor, bold: true }, 'n'),
+      h(Text, { color: theme.textMuted }, ' cancel')
+    )
   );
 }
 

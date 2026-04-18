@@ -50,7 +50,7 @@ function GitStatusSummary({ details }) {
   const parts = [];
   const pushPart = (key, color, text) => {
     if (parts.length > 0) parts.push(h(Text, { key: `${key}-gap`, color: 'gray' }, ' '));
-    parts.push(h(Text, { key, color }, text));
+    parts.push(h(Text, { key, color, bold: true }, text));
   };
 
   if ((details.stagedCount ?? 0) > 0) pushPart('staged', statColor(details.stagedCount ?? 0), `+${details.stagedCount}`);
@@ -88,7 +88,7 @@ function DetailLine({ label, children, color = 'white' }) {
   return h(
     Box,
     { flexWrap: 'wrap' },
-    h(Text, { color: 'gray' }, `${label}: `),
+    h(Text, { color: 'gray', bold: true }, `${label}: `),
     content
   );
 }
@@ -127,11 +127,11 @@ export function ManageHeader({ repoRoot, entryCount, staleCount, mainCount, colu
     h(Text, { color: 'gray' }, '  '),
     h(Text, { color: 'gray' }, repoLabel),
     h(Text, { color: 'gray' }, '  '),
-    h(Text, { color: 'blue' }, `${entryCount} worktrees`),
+    h(Text, { color: 'blue', bold: true }, `${entryCount} worktrees`),
     h(Text, { color: 'gray' }, '  '),
-    h(Text, { color: statColor(staleCount) }, `${staleCount} stale`),
+    h(Text, { color: statColor(staleCount), bold: true }, `${staleCount} stale`),
     h(Text, { color: 'gray' }, '  '),
-    h(Text, { color: statColor(entryCount - mainCount) }, `${entryCount - mainCount} branches`)
+    h(Text, { color: statColor(entryCount - mainCount), bold: true }, `${entryCount - mainCount} branches`)
   );
 }
 
@@ -151,7 +151,7 @@ export function FilterPanel({
       ? h(
         Box,
         { flexWrap: 'wrap' },
-        h(Text, { color: 'cyan' }, 'filter> '),
+        h(Text, { color: 'cyan', bold: true }, 'filter> '),
         h(TextInput, {
           placeholder: 'branch, path, or HEAD',
           defaultValue: query,
@@ -168,14 +168,14 @@ export function FilterPanel({
       : h(
         Box,
         { flexWrap: 'wrap' },
-        h(Text, { color: 'gray' }, 'filter: '),
-        h(Text, { color: query ? 'white' : 'gray' }, query || 'Press / to filter worktrees')
+        h(Text, { color: 'gray', bold: true }, 'filter: '),
+        h(Text, { color: query ? 'white' : 'gray', bold: Boolean(query) }, query || 'Press / to filter worktrees')
       ),
     h(
       Box,
       { flexWrap: 'wrap' },
-      h(Text, { color: 'gray' }, 'comparing: '),
-      h(Text, { color: 'magenta' }, currentCheckout.label)
+      h(Text, { color: 'gray', bold: true }, 'comparing: '),
+      h(Text, { color: 'magenta', bold: true }, currentCheckout.label)
     )
   );
 }
@@ -200,7 +200,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
       ? h(
         Box,
         { marginBottom: 1, flexWrap: 'wrap' },
-        h(Text, { color: 'gray' }, `showing ${windowStart + 1}-${windowEnd} of ${totalCount}`)
+        h(Text, { color: 'gray', bold: true }, `showing ${windowStart + 1}-${windowEnd} of ${totalCount}`)
       )
       : null,
     ...entries.map((entry, index) => {
@@ -223,7 +223,7 @@ export function WorktreeList({ entries, selectedEntry, columns, query, windowSta
           { flexWrap: 'wrap' },
           h(Text, { color: selectedColor, bold: isSelected }, `${isSelected ? '>' : ' '} ${branchLabel}`),
           h(Text, { color: 'gray' }, '  '),
-          h(Text, { color: 'gray' }, pathLabel),
+          h(Text, { color: isSelected ? 'white' : 'gray', bold: isSelected }, pathLabel),
           tagText ? h(Text, { color: 'gray' }, '  ') : null,
           tagText ? h(Text, { color: 'gray', dimColor: true }, tagText) : null,
         ),
@@ -238,6 +238,7 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
   }
 
   const highlightedLabel = selectedEntry.branch ?? `${selectedEntry.head?.slice(0, 12) ?? 'unknown'}`;
+  const selectedPathLabel = cliTruncate(displayPathPortable(selectedEntry.path), Math.max(24, columns - 4));
   const relationText = comparison.loading
     ? 'comparing...'
     : comparison.data
@@ -262,6 +263,8 @@ export function DetailsPane({ currentCheckout, selectedEntry, details, compariso
   return h(
     Box,
     { flexDirection: 'column', marginBottom: 1 },
+    h(Text, { color: 'cyan', bold: true }, highlightedLabel),
+    h(Text, { color: 'gray', dimColor: true }, selectedPathLabel),
     h(DetailLine, { label: 'commit' }, details.loading ? 'loading...' : stripCommitHash(details.data?.lastCommit)),
     h(DetailLine, {
       label: 'git status',
@@ -314,10 +317,34 @@ export function ManageStatus({ isRefreshing, status }) {
 }
 
 export function ManageFooter({ selectedEntry, visibleCount, totalCount }) {
+  const selectedLabel = selectedEntry?.branch ?? selectedEntry?.head?.slice(0, 12) ?? null;
+
   return h(
     Box,
     { marginTop: 1, justifyContent: 'space-between', flexWrap: 'wrap' },
-    h(Text, { color: 'gray' }, '↑↓ move  / filter  r refresh  d delete  q quit'),
-    h(Text, { color: 'gray' }, `${visibleCount}/${totalCount} shown`)
+    h(
+      Box,
+      { flexWrap: 'wrap' },
+      h(Text, { color: 'gray' }, ' '),
+      h(Text, { color: 'white', bold: true }, '↑↓'),
+      h(Text, { color: 'gray' }, ' move  '),
+      h(Text, { color: 'white', bold: true }, '/'),
+      h(Text, { color: 'gray' }, ' filter  '),
+      h(Text, { color: 'white', bold: true }, 'r'),
+      h(Text, { color: 'gray' }, ' refresh  '),
+      h(Text, { color: 'white', bold: true }, 'd'),
+      h(Text, { color: 'gray' }, ' delete  '),
+      h(Text, { color: 'white', bold: true }, 'q'),
+      h(Text, { color: 'gray' }, ' quit')
+    ),
+    h(
+      Box,
+      { flexWrap: 'wrap' },
+      selectedLabel ? h(Text, { color: 'gray' }, 'selected ') : null,
+      selectedLabel ? h(Text, { color: 'cyan', bold: true }, selectedLabel) : null,
+      selectedLabel ? h(Text, { color: 'gray' }, '  ') : null,
+      h(Text, { color: 'gray' }, 'shown '),
+      h(Text, { color: 'white', bold: true }, `${visibleCount}/${totalCount}`)
+    )
   );
 }

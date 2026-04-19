@@ -15,7 +15,7 @@ Git worktrees are useful whenever you need multiple independent checkouts of the
 
 The raw `git worktree` commands are powerful, but the everyday workflow is repetitive: choose a branch, create a safe directory name, add the worktree, run repo-specific setup, remember where it lives, clean it up later, and merge it back when ready.
 
-`wtm` wraps that workflow in a focused CLI. It creates one worktree per branch under a predictable directory, runs optional setup commands, and provides an interactive terminal UI for managing active worktrees.
+`wtm` wraps that workflow in a focused CLI. It creates one worktree per branch under a predictable directory, runs optional setup steps, and provides an interactive terminal UI for managing active worktrees.
 
 ## Usage
 
@@ -99,7 +99,7 @@ wtm init
 ```
 
 This creates `.wtm.config.toml` from the packaged example template and refuses to overwrite an existing file.
-`wtm init` keeps the file shape fixed and only auto-fills the `setup` commands when it can detect them confidently.
+`wtm init` keeps the file shape fixed and only auto-fills the `setup` steps when it can detect them confidently.
 
 **Minimal `.wtm.config.toml`:**
 
@@ -107,40 +107,69 @@ This creates `.wtm.config.toml` from the packaged example template and refuses t
 baseBranch   = "main"
 worktreeRoot = ".trees"
 
-setup = [
-  # add repo-specific setup commands here
-]
+# Add repo-specific [[setup]] steps here.
 ```
 
-`wtm init` may emit more verbose but shell-agnostic generated commands than this minimal hand-written example so the auto-detected setup keeps working if you later switch `shell`.
+`wtm init` emits high-level setup steps such as `copy` and `run`, so common setup stays readable and portable.
 
 ### `init` Detection
 
-`wtm init` does not switch between multiple full templates. It always writes the same config file and only varies the generated `setup` list:
+`wtm init` does not switch between multiple full templates. It always writes the same config file and only varies the generated `setup` steps:
 
-- if `.env.example` exists, it adds a shell-agnostic copy command for `.env`
-- if `package.json` exists and the package manager can be inferred from a lockfile or `packageManager`, it adds the matching install command
-- if neither signal is present, it writes `setup = []`
+- if `.env` or `.env.*` files exist anywhere in the repo, it adds `copy` steps for each one
+- if `.env` is not present but `.env.example` exists, it also adds a fallback copy from `.env.example` to `.env`
+- if `package.json` exists and the package manager can be inferred from a lockfile or `packageManager`, it adds the matching `run` install step
+- if neither signal is present, it leaves a placeholder comment for future `[[setup]]` steps
 
-The generated commands are quoted and avoid shell-specific builtins like `cp` or `copy`, so they are more portable across the supported shells. They still assume the configured shell can invoke quoted `node -e "..."` commands.
+Generated env copy steps do not overwrite files that already exist in the target worktree.
 
 Current package-manager detection order:
 
-- `pnpm-lock.yaml` -> `pnpm install`
-- `package-lock.json` or `npm-shrinkwrap.json` -> `npm install`
-- `yarn.lock` -> `yarn install`
-- `bun.lock` or `bun.lockb` -> `bun install`
+- `pnpm-lock.yaml` -> `run = "pnpm install"`
+- `package-lock.json` or `npm-shrinkwrap.json` -> `run = "npm install"`
+- `yarn.lock` -> `run = "yarn install"`
+- `bun.lock` or `bun.lockb` -> `run = "bun install"`
 - otherwise, `package.json#packageManager`
 
-### Setup Commands
+### Setup Steps
 
-Setup commands run once after the worktree is created. Three template variables are available:
+Setup steps run once after the worktree is created. Three template variables are available:
 
 | Variable | Value |
 |---|---|
 | `{target}` | Absolute path to the new worktree |
 | `{root}` | Absolute path to the repo root |
 | `{branch}` | The branch name, such as `feat/auth-refactor` |
+
+Use `[[setup]]` tables to describe setup actions:
+
+```toml
+[[setup]]
+copy = ".env"
+
+[[setup]]
+copy = "shared/.env.development"
+
+[[setup]]
+run = "pnpm install"
+```
+
+`copy` paths are resolved from the repo root and copied to the same relative path under the target worktree. Parent directories are created automatically and existing target files are not overwritten by default.
+
+```toml
+[[setup]]
+copy = ".env.example"
+to = ".env"
+overwrite = true
+```
+
+`run` commands execute in `{target}` by default and use the configured `shell`. A custom working directory can be set with `cwd`.
+
+```toml
+[[setup]]
+run = "pnpm exec prisma generate"
+cwd = "{target}"
+```
 
 If no `setup` is configured, the CLI just creates the worktree and exits.
 
@@ -150,8 +179,8 @@ If no `setup` is configured, the CLI just creates the worktree and exits.
 |---|---|---|
 | `baseBranch` | `"main"` | Branch to fork from when creating a new branch |
 | `worktreeRoot` | `".trees"` | Directory under repo root where worktrees are placed |
-| `shell` | system default | Shell used to run setup commands, such as `"bash"` or `"pwsh"` |
-| `setup` | `[]` | Ordered list of shell commands to run after worktree creation |
+| `shell` | system default | Shell used to run `run` setup steps, such as `"bash"` or `"pwsh"` |
+| `setup` | `[]` | Ordered list of setup steps to run after worktree creation |
 | `theme` | built-in palette | Optional `[theme]` table for `wtm manage` colors |
 
 ### Manage UI Theme
@@ -179,7 +208,7 @@ These values map directly to Ink text colors. Named colors, hex colors, `rgb(...
 - **Branch exists?** Reused as-is.
 - **Worktree exists?** Reattached, setup skipped.
 - **Worktree registered but directory missing?** Stale entry pruned, worktree recreated.
-- **Setup configured?** Commands run once after a new worktree is created.
+- **Setup configured?** Steps run once after a new worktree is created.
 - **`--now` / `-n`?** Launches `codex` inside the worktree after setup.
 - **No `--now`?** Prints the worktree path and a suggested next command, then exits.
 

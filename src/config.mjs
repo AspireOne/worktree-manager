@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { parse as parseTomlDocument } from 'toml';
 import { die, log, warn } from './log.mjs';
@@ -35,22 +35,6 @@ function quoteTomlString(value) {
   return `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 }
 
-function quoteShellArg(value) {
-  return `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
-}
-
-function buildNodeEvalCommand(script, args) {
-  const quotedArgs = args.map((arg) => quoteShellArg(arg)).join(' ');
-  return `node -e ${quoteShellArg(script)}${quotedArgs ? ` ${quotedArgs}` : ''}`;
-}
-
-function buildInstallCommand(packageManager) {
-  return buildNodeEvalCommand(
-    "const { spawnSync } = require('node:child_process'); const [pm, cwd] = process.argv.slice(1); const { status, error } = spawnSync(pm, ['install'], { cwd, stdio: 'inherit', shell: process.platform === 'win32' }); if (error) throw error; process.exit(status ?? 0);",
-    [packageManager, '{target}'],
-  );
-}
-
 function detectNodePackageManager(targetDir) {
   const packageJsonPath = join(targetDir, 'package.json');
   if (!existsSync(packageJsonPath)) return null;
@@ -84,32 +68,79 @@ function detectNodePackageManager(targetDir) {
   return null;
 }
 
-function detectSetupCommands(targetDir) {
-  const commands = [];
-  const detections = [];
+function toConfigPath(filePath) {
+  return filePath.split(sep).join('/');
+}
 
-  if (existsSync(join(targetDir, '.env.example'))) {
-    commands.push(buildNodeEvalCommand(
-      "require('node:fs').copyFileSync(process.argv[1], process.argv[2])",
-      ['{target}/.env.example', '{target}/.env'],
-    ));
-    detections.push('.env.example');
+function detectEnvFiles(targetDir) {
+  const ignoredDirs = new Set(['.git', '.trees', 'node_modules']);
+  const matches = [];
+
+  function visit(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (!ignoredDirs.has(entry.name)) visit(join(dir, entry.name));
+        continue;
+      }
+
+      if (!entry.isFile()) continue;
+      if (entry.name !== '.env' && !entry.name.startsWith('.env.')) continue;
+
+      matches.push(toConfigPath(relative(targetDir, join(dir, entry.name))));
+    }
+  }
+
+  visit(targetDir);
+  return matches.sort();
+}
+
+function detectSetupCommands(targetDir) {
+  const steps = [];
+  const detections = [];
+  const envFiles = detectEnvFiles(targetDir);
+
+  for (const envFile of envFiles) {
+    steps.push({ copy: envFile });
+    detections.push(`env:${envFile}`);
+  }
+
+  if (!envFiles.includes('.env') && envFiles.includes('.env.example')) {
+    steps.push({ copy: '.env.example', to: '.env' });
+    detections.push('env:.env.example->.env');
   }
 
   const packageManager = detectNodePackageManager(targetDir);
   if (packageManager) {
-    commands.push(buildInstallCommand(packageManager));
+    steps.push({ run: `${packageManager} install` });
     detections.push(`node:${packageManager}`);
   }
 
-  return { commands, detections };
+  return { steps, detections };
 }
 
-function renderSetupBlock(commands) {
-  if (!commands.length) return 'setup = []';
+function renderSetupStep(step) {
+  const lines = ['[[setup]]'];
 
-  const lines = commands.map((command) => `  ${quoteTomlString(command)},`);
-  return `setup = [\n${lines.join('\n')}\n]`;
+  if (step.copy) {
+    lines.push(`copy = ${quoteTomlString(step.copy)}`);
+    if (step.to) lines.push(`to = ${quoteTomlString(step.to)}`);
+    if (step.overwrite) lines.push('overwrite = true');
+    return lines.join('\n');
+  }
+
+  if (step.run) {
+    lines.push(`run = ${quoteTomlString(step.run)}`);
+    if (step.cwd) lines.push(`cwd = ${quoteTomlString(step.cwd)}`);
+    return lines.join('\n');
+  }
+
+  throw new Error(`Unsupported setup step: ${JSON.stringify(step)}`);
+}
+
+function renderSetupBlock(steps) {
+  if (!steps.length) return '# Add repo-specific [[setup]] steps here.';
+
+  return steps.map(renderSetupStep).join('\n\n');
 }
 
 export function bootstrapLocalConfig(targetDir = process.cwd()) {
@@ -120,8 +151,8 @@ export function bootstrapLocalConfig(targetDir = process.cwd()) {
   }
 
   const template = readFileSync(LOCAL_CONFIG_TEMPLATE_URL, 'utf8');
-  const { commands, detections } = detectSetupCommands(targetDir);
-  const contents = template.replace(SETUP_BLOCK_TOKEN, renderSetupBlock(commands));
+  const { steps, detections } = detectSetupCommands(targetDir);
+  const contents = template.replace(SETUP_BLOCK_TOKEN, renderSetupBlock(steps));
 
   writeFileSync(targetPath, contents, { encoding: 'utf8', flag: 'wx' });
   log(`Created ${targetPath}`);
@@ -131,7 +162,7 @@ export function bootstrapLocalConfig(targetDir = process.cwd()) {
     return;
   }
 
-  log('No setup commands detected; wrote an empty setup list.');
+  log('No setup steps detected; wrote an empty setup list.');
 }
 
 export function loadConfig(repoRoot) {

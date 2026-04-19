@@ -23,6 +23,8 @@ The raw `git worktree` commands are powerful, but the everyday workflow is repet
 wtm feat/auth-refactor           # create a worktree, run setup, print the path
 wtm fix/login-race --base main   # branch off a specific base branch
 wtm feat/auth-refactor           # already exists? reattach idempotently
+wtm feat/auth-refactor --run codex
+wtm feat/auth-refactor --run "pnpm dev"
 wtm init                         # write .wtm.config.toml into the current repo
 wtm manage                       # browse, remove, inspect, and merge worktrees
 ```
@@ -43,13 +45,14 @@ Each worktree is a normal Git checkout. You can use any editor, terminal, automa
 cd .trees/feat-auth-refactor
 ```
 
-There is also a convenience shortcut:
+There is also a command runner shortcut:
 
 ```bash
-wtm feat/auth-refactor --now
+wtm feat/auth-refactor --run codex
+wtm feat/auth-refactor --run "pnpm dev"
 ```
 
-Currently `--now` launches `codex` inside the created worktree. The worktree management itself is not Codex-specific; this shortcut is just a launcher convenience for users who have that CLI installed.
+`--run` executes the provided command inside the worktree after setup. Quote commands that contain spaces so your shell passes them as a single option value.
 
 ## Install
 
@@ -209,8 +212,8 @@ These values map directly to Ink text colors. Named colors, hex colors, `rgb(...
 - **Worktree exists?** Reattached, setup skipped.
 - **Worktree registered but directory missing?** Stale entry pruned, worktree recreated.
 - **Setup configured?** Steps run once after a new worktree is created.
-- **`--now` / `-n`?** Launches `codex` inside the worktree after setup.
-- **No `--now`?** Prints the worktree path and a suggested next command, then exits.
+- **`--run <command>` / `-r <command>`?** Runs the command inside the worktree after setup.
+- **No `--run`?** Prints the worktree path, then exits.
 
 ## Manage UI
 

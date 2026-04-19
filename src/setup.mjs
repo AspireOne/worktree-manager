@@ -228,8 +228,10 @@ for (const step of steps) {
   child.unref();
 }
 
-export function launchCodex(worktreePath) {
-  log(`Launching codex in '${worktreePath}'...`);
-  const { error } = spawnSync('codex', [], { cwd: worktreePath, stdio: 'inherit', shell: true });
-  if (error) die(`Could not launch codex: ${error.message}`);
+export function runCommand(command, worktreePath) {
+  log(`Running '${command}' in '${worktreePath}'...`);
+  const { error, signal, status } = spawnSync(command, [], { cwd: worktreePath, stdio: 'inherit', shell: true });
+  if (error) die(`Could not run command: ${error.message}`);
+  if (signal) die(`Command terminated by signal: ${signal}`);
+  if (status !== 0) die(`Command exited with status ${status}`);
 }

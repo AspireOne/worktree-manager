@@ -1,7 +1,7 @@
 {
   "name": "@aspireone/wtm",
   "version": "0.1.11",
-  "description": "Git worktree manager - general worktree management & codex parallelism",
+  "description": "Git worktree manager for isolated branches and parallel automation",
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "bin": {
@@ -33,7 +33,7 @@
   "keywords": [
     "git",
     "worktree",
-    "codex",
+    "automation",
     "cli"
   ],
   "license": "UNLICENSED",

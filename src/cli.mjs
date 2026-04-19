@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { bootstrapLocalConfig, loadConfig } from './config.mjs';
 import { die, log } from './log.mjs';
 import { runManageUI } from './manage-ui.mjs';
-import { launchCodex, runSetup } from './setup.mjs';
+import { runCommand, runSetup } from './setup.mjs';
 import {
   branchToDir,
   createOrReattachWorktree,
@@ -15,14 +15,14 @@ function parseCLI() {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      now: { type: 'boolean', short: 'n', default: false },
+      run: { type: 'string', short: 'r' },
       base: { type: 'string', short: 'b' },
     },
     allowPositionals: true,
   });
 
   if (!positionals.length) {
-    die('Usage: wtm <branch> [--base <branch>] [--now|-n]\n       wtm init\n       wtm manage');
+    die('Usage: wtm <branch> [--base <branch>] [--run <command>|-r <command>]\n       wtm init\n       wtm manage');
   }
 
   if (positionals[0] === 'init') {
@@ -30,10 +30,10 @@ function parseCLI() {
   }
 
   if (positionals[0] === 'manage') {
-    return { command: 'manage', branch: null, now: false, base: null };
+    return { command: 'manage', branch: null, run: null, base: null };
   }
 
-  return { command: 'create', branch: positionals[0], now: values.now, base: values.base ?? null };
+  return { command: 'create', branch: positionals[0], run: values.run ?? null, base: values.base ?? null };
 }
 
 export async function main() {
@@ -68,13 +68,13 @@ export async function main() {
   createOrReuseBranch(branchName, baseBranch, repoRoot);
   const createdWorktree = createOrReattachWorktree(worktreePath, branchName, repoRoot);
 
-  if (cli.now) {
+  if (cli.run) {
     if (createdWorktree) runSetup(config.setup, vars, config.shell);
-    launchCodex(worktreePath);
+    runCommand(cli.run, worktreePath);
     return;
   }
 
   if (createdWorktree) runSetup(config.setup, vars, config.shell);
-  log('Done. To start codex:');
-  log(`  cd "${worktreePath}" && codex`);
+  log('Done. Worktree ready:');
+  log(`  cd "${worktreePath}"`);
 }

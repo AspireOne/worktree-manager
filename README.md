@@ -25,6 +25,7 @@ wtm fix/login-race --base main   # branch off a specific base branch
 wtm feat/auth-refactor           # already exists? reattach idempotently
 wtm feat/auth-refactor --run codex
 wtm feat/auth-refactor --run "pnpm dev"
+wtm feat/auth-refactor --run codex --now
 wtm init                         # write .wtm.config.toml into the current repo
 wtm manage                       # browse, remove, inspect, and merge worktrees
 ```
@@ -50,9 +51,11 @@ There is also a command runner shortcut:
 ```bash
 wtm feat/auth-refactor --run codex
 wtm feat/auth-refactor --run "pnpm dev"
+wtm feat/auth-refactor --run codex --now
 ```
 
 `--run` executes the provided command inside the worktree after setup. Quote commands that contain spaces so your shell passes them as a single option value.
+Add `--now` / `-n` with `--run` to start setup in the background and run the command immediately.
 
 ## Install
 
@@ -213,6 +216,7 @@ These values map directly to Ink text colors. Named colors, hex colors, `rgb(...
 - **Worktree registered but directory missing?** Stale entry pruned, worktree recreated.
 - **Setup configured?** Steps run once after a new worktree is created.
 - **`--run <command>` / `-r <command>`?** Runs the command inside the worktree after setup.
+- **`--run <command> --now` / `-r <command> -n`?** Starts setup in the background, then immediately runs the command inside the worktree.
 - **No `--run`?** Prints the worktree path, then exits.
 
 ## Manage UI

@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { bootstrapLocalConfig, loadConfig } from './config.mjs';
 import { die, log } from './log.mjs';
 import { runManageUI } from './manage-ui.mjs';
-import { runCommand, runSetup } from './setup.mjs';
+import { runCommand, runSetup, runSetupBackground } from './setup.mjs';
 import {
   branchToDir,
   createOrReattachWorktree,
@@ -16,24 +16,31 @@ function parseCLI() {
     args: process.argv.slice(2),
     options: {
       run: { type: 'string', short: 'r' },
+      now: { type: 'boolean', short: 'n', default: false },
       base: { type: 'string', short: 'b' },
     },
     allowPositionals: true,
   });
 
   if (!positionals.length) {
-    die('Usage: wtm <branch> [--base <branch>] [--run <command>|-r <command>]\n       wtm init\n       wtm manage');
+    die('Usage: wtm <branch> [--base <branch>] [--run <command>|-r <command>] [--now|-n]\n       wtm init\n       wtm manage');
   }
 
   if (positionals[0] === 'init') {
+    if (values.run || values.now) die('init does not accept --run or --now');
     return { command: 'init' };
   }
 
   if (positionals[0] === 'manage') {
-    return { command: 'manage', branch: null, run: null, base: null };
+    if (values.run || values.now) die('manage does not accept --run or --now');
+    return { command: 'manage', branch: null, run: null, now: false, base: null };
   }
 
-  return { command: 'create', branch: positionals[0], run: values.run ?? null, base: values.base ?? null };
+  if (values.now && !values.run) {
+    die('--now requires --run <command>');
+  }
+
+  return { command: 'create', branch: positionals[0], run: values.run ?? null, now: values.now, base: values.base ?? null };
 }
 
 export async function main() {
@@ -69,7 +76,10 @@ export async function main() {
   const createdWorktree = createOrReattachWorktree(worktreePath, branchName, repoRoot);
 
   if (cli.run) {
-    if (createdWorktree) runSetup(config.setup, vars, config.shell);
+    if (createdWorktree) {
+      if (cli.now) runSetupBackground(config.setup, vars, config.shell);
+      else runSetup(config.setup, vars, config.shell);
+    }
     runCommand(cli.run, worktreePath);
     return;
   }

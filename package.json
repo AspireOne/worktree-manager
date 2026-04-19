@@ -1,6 +1,6 @@
 {
   "name": "@aspireone/wtm",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Git worktree manager for isolated branches and parallel automation",
   "type": "module",
   "packageManager": "pnpm@10.0.0",

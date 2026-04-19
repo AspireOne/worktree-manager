@@ -1,4 +1,3 @@
 .trees
 node_modules
 .wtm.config.*
-bin
